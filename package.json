@@ -1,0 +1,25 @@
+{
+  "name": "blockchain-storage-proxy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GolosChain/blockchain-storage-proxy.git"
+  },
+  "author": "golos.io",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/GolosChain/blockchain-storage-proxy/issues"
+  },
+  "homepage": "https://github.com/GolosChain/blockchain-storage-proxy#readme",
+  "dependencies": {
+    "gls-core-service": "^3.52.0"
+  },
+  "devDependencies": {
+    "prettier": "^1.18.2"
+  }
+}
