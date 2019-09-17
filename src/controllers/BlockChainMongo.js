@@ -16,6 +16,33 @@ class BlockChainMongo extends BasicController {
             });
         });
     }
+
+    async getLeaders() {
+        const db = this._client.db('_CYBERWAY_');
+        const collection = db.collection('permission');
+
+        const query = { owner: 'gls', name: 'witn.smajor' };
+
+        const leaders = await collection
+            .aggregate([
+                { $match: query },
+                { $project: { account: '$auth.accounts.permission.actor' } },
+                { $unwind: '$account' },
+                {
+                    $lookup: {
+                        as: 'u',
+                        foreignField: 'owner',
+                        from: 'glsname',
+                        localField: 'account',
+                    },
+                },
+                { $project: { account: 1, glsname: '$u.name' } },
+            ])
+            .toArray();
+
+        return { leaders };
+    }
+
     async getDelegations({ sequenceKey = null, limit = 10 }) {
         const db = this._client.db('_CYBERWAY_gls_vesting');
         const query = {};

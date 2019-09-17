@@ -21,6 +21,10 @@ class Connector extends BasicConnector {
                     handler: this._bcMongo.getValidators,
                     scope: this._bcMongo,
                 },
+                getLeaders: {
+                    handler: this._bcMongo.getLeaders,
+                    scope: this._bcMongo,
+                },
             },
         });
 
