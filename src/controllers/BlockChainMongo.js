@@ -19,6 +19,7 @@ class BlockChainMongo extends BasicController {
     async getDelegations() {}
 
     async getValidators({ sequenceKey = null, limit = 10 }) {
+        const db = this._client.db('_CYBERWAY_');
         const query = {};
         if (sequenceKey) {
             query._id = { $gt: ObjectId(sequenceKey) };
@@ -26,7 +27,7 @@ class BlockChainMongo extends BasicController {
 
         const projection = { id: false, _SERVICE_: false };
 
-        const collection = this._client.db('_CYBERWAY_').collection('stake_cand');
+        const collection = db.collection('stake_cand');
         const validators = await collection
             .find(query)
             .project(projection)
