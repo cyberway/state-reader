@@ -1,7 +1,7 @@
 version: '2.1'
 services:
-  storage-node:
-    container_name: storage-node
+  state-reader:
+    container_name: state-reader
     restart: always
     build:
       context: .
