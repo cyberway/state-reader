@@ -25,6 +25,10 @@ class Connector extends BasicConnector {
                     handler: this._bcMongo.getLeaders,
                     scope: this._bcMongo,
                 },
+                getNameBids: {
+                    handler: this._bcMongo.getNameBids,
+                    scope: this._bcMongo,
+                },
             },
         });
 

@@ -131,6 +131,54 @@ class BlockChainMongo extends BasicController {
             sequenceKey: newSequenceKey,
         };
     }
+
+    async getNameBids({ sequenceKey = null, limit = 10 }) {
+        const db = this._client.db('_CYBERWAY_');
+        const query = { high_bid: { $gt: 0 } };
+        if (sequenceKey) {
+            query._id = { $gt: ObjectId(sequenceKey) };
+        }
+
+        const projection = {
+            newname: 1,
+            high_bidder: 1,
+            high_bid: 1,
+            last_bid_time: 1,
+            glsname: { $arrayElemAt: ['$u.name', 0] },
+        };
+
+        const collection = db.collection('namebids');
+
+        const namebids = await collection
+            .aggregate([
+                { $match: query },
+                {
+                    $lookup: {
+                        as: 'u',
+                        foreignField: 'owner',
+                        from: 'glsname',
+                        localField: 'high_bidder',
+                    },
+                },
+                { $sort: { high_bid: -1, newname: 1 } },
+                {
+                    $project: projection,
+                },
+            ])
+            .limit(limit)
+            .toArray();
+
+        let newSequenceKey = null;
+
+        if (namebids.length === limit) {
+            newSequenceKey = namebids[namebids.length - 1]._id;
+        }
+
+        return {
+            namebids,
+            sequenceKey: newSequenceKey,
+        };
+    }
 }
 
 module.exports = BlockChainMongo;
