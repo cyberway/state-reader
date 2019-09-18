@@ -3,7 +3,7 @@ services:
   storage-node:
     container_name: storage-node
     restart: always
-    build: storage
+    build:
       context: .
       dockerfile: Dockerfile
     networks:

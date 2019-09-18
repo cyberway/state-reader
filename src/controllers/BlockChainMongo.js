@@ -9,12 +9,16 @@ class BlockChainMongo extends BasicController {
             const client = new MongoClient(env.GLS_CYBERWAY_MONGO_CONNECT);
             client.connect((err, client) => {
                 if (err) {
-                    reject(err);
+                    return reject(err);
                 }
                 this._client = client;
                 resolve();
             });
         });
+    }
+
+    static getSequenceKey(items, limit) {
+        return items.length === limit ? items[items.length - 1]._id : null;
     }
 
     async getLeaders() {
@@ -90,16 +94,14 @@ class BlockChainMongo extends BasicController {
             .limit(limit)
             .toArray();
 
-        let newSequenceKey = null;
-        if (validators.length === limit) {
-            newSequenceKey = validators[validators.length - 1]._id;
+        const newSequenceKey = BlockChainMongo.getSequenceKey(validators, limit);
+
+        for (const validator of validators) {
+            delete validator._id;
         }
 
         return {
-            validators: validators.map(validator => {
-                delete validator._id;
-                return validator;
-            }),
+            validators,
             sequenceKey: newSequenceKey,
         };
     }
@@ -120,15 +122,9 @@ class BlockChainMongo extends BasicController {
             .limit(limit)
             .toArray();
 
-        let newSequenceKey = null;
-
-        if (delegations.length === limit) {
-            newSequenceKey = delegations[delegations.length - 1]._id;
-        }
-
         return {
             delegations,
-            sequenceKey: newSequenceKey,
+            sequenceKey: BlockChainMongo.getSequenceKey(delegations, limit),
         };
     }
 
@@ -168,15 +164,9 @@ class BlockChainMongo extends BasicController {
             .limit(limit)
             .toArray();
 
-        let newSequenceKey = null;
-
-        if (namebids.length === limit) {
-            newSequenceKey = namebids[namebids.length - 1]._id;
-        }
-
         return {
             namebids,
-            sequenceKey: newSequenceKey,
+            sequenceKey: BlockChainMongo.getSequenceKey(namebids, limit),
         };
     }
 
@@ -190,9 +180,9 @@ class BlockChainMongo extends BasicController {
 
         const collection = db.collection('biosstate');
 
-        const bids = await collection.find(query, projection).toArray();
+        const bids = await collection.findOne(query, projection);
 
-        return { lastClosedBid: bids[0] };
+        return { lastClosedBid: bids };
     }
 }
 
