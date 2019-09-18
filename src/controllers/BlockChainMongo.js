@@ -179,6 +179,21 @@ class BlockChainMongo extends BasicController {
             sequenceKey: newSequenceKey,
         };
     }
+
+    async getLastClosedBid() {
+        const db = this._client.db('_CYBERWAY_');
+        const query = {};
+
+        const projection = {
+            last_closed_bid: 1,
+        };
+
+        const collection = db.collection('biosstate');
+
+        const bids = await collection.find(query, projection).toArray();
+
+        return { lastClosedBid: bids[0] };
+    }
 }
 
 module.exports = BlockChainMongo;

@@ -29,6 +29,10 @@ class Connector extends BasicConnector {
                     handler: this._bcMongo.getNameBids,
                     scope: this._bcMongo,
                 },
+                getLastClosedBid: {
+                    handler: this._bcMongo.getLastClosedBid,
+                    scope: this._bcMongo,
+                },
             },
         });
 
