@@ -43,6 +43,67 @@ class BlockChainMongo extends BasicController {
         return { leaders };
     }
 
+    async _getStakeStat() {
+        const db = this._client.db('_CYBERWAY_');
+        const query = {};
+
+        const collection = db.collection('stake_stat');
+        const stakeStat = await collection.find(query).toArray();
+
+        return stakeStat[0];
+    }
+
+    async getValidators({ sequenceKey = null, limit = 10 }) {
+        const db = this._client.db('_CYBERWAY_');
+        const collection = db.collection('stake_cand');
+
+        const query = { enabled: true };
+
+        if (sequenceKey) {
+            query._id = { $gt: ObjectId(sequenceKey) };
+        }
+
+        const totalVotes = (await this._getStakeStat()).total_votes;
+
+        const validators = await collection
+            .aggregate([
+                { $match: query },
+                {
+                    $lookup: {
+                        as: 'u',
+                        foreignField: 'owner',
+                        from: 'glsname',
+                        localField: 'account',
+                    },
+                },
+                {
+                    $project: {
+                        account: 1,
+                        glsname: { $arrayElemAt: ['$u.name', 0] },
+                        votes: 1,
+                        _id: 1,
+                        pct: { $divide: ['$votes', totalVotes] },
+                    },
+                },
+                { $sort: { token_code: 1, enabled: 1, votes: -1, account: 1 } },
+            ])
+            .limit(limit)
+            .toArray();
+
+        let newSequenceKey = null;
+        if (validators.length === limit) {
+            newSequenceKey = validators[validators.length - 1]._id;
+        }
+
+        return {
+            validators: validators.map(validator => {
+                delete validator._id;
+                return validator;
+            }),
+            sequenceKey: newSequenceKey,
+        };
+    }
+
     async getDelegations({ sequenceKey = null, limit = 10 }) {
         const db = this._client.db('_CYBERWAY_gls_vesting');
         const query = {};
@@ -67,35 +128,6 @@ class BlockChainMongo extends BasicController {
 
         return {
             delegations,
-            sequenceKey: newSequenceKey,
-        };
-    }
-
-    async getValidators({ sequenceKey = null, limit = 10 }) {
-        const db = this._client.db('_CYBERWAY_');
-        const query = {};
-        if (sequenceKey) {
-            query._id = { $gt: ObjectId(sequenceKey) };
-        }
-
-        const projection = { id: false, _SERVICE_: false };
-
-        const collection = db.collection('stake_cand');
-        const validators = await collection
-            .find(query)
-            .project(projection)
-            .sort([['priority', 1]])
-            .limit(limit)
-            .toArray();
-
-        let newSequenceKey = null;
-
-        if (validators.length === limit) {
-            newSequenceKey = validators[validators.length - 1]._id;
-        }
-
-        return {
-            validators,
             sequenceKey: newSequenceKey,
         };
     }
