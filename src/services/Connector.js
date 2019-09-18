@@ -14,10 +14,12 @@ class Connector extends BasicConnector {
         await super.start({
             serverRoutes: {
                 getDelegations: {
+                    inherits: ['pagination'],
                     handler: this._bcMongo.getDelegations,
                     scope: this._bcMongo,
                 },
                 getValidators: {
+                    inherits: ['pagination'],
                     handler: this._bcMongo.getValidators,
                     scope: this._bcMongo,
                 },
@@ -26,12 +28,31 @@ class Connector extends BasicConnector {
                     scope: this._bcMongo,
                 },
                 getNameBids: {
+                    inherits: ['pagination'],
                     handler: this._bcMongo.getNameBids,
                     scope: this._bcMongo,
                 },
                 getLastClosedBid: {
                     handler: this._bcMongo.getLastClosedBid,
                     scope: this._bcMongo,
+                },
+            },
+            serverDefaults: {
+                parents: {
+                    pagination: {
+                        validation: {
+                            properties: {
+                                sequenceKey: {
+                                    type: ['string', 'null'],
+                                    default: null,
+                                },
+                                limit: {
+                                    type: 'number',
+                                    default: 10,
+                                },
+                            },
+                        },
+                    },
                 },
             },
         });
