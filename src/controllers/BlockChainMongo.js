@@ -5,16 +5,34 @@ const { MongoClient, ObjectId } = require('mongodb');
 
 class BlockChainMongo extends BasicController {
     async boot() {
+        this._client = await this._initializeClient();
+        await this._createGlsnameView();
+    }
+
+    async _initializeClient() {
         return new Promise((resolve, reject) => {
             const client = new MongoClient(env.GLS_CYBERWAY_MONGO_CONNECT);
             client.connect((err, client) => {
                 if (err) {
                     return reject(err);
                 }
-                this._client = client;
-                resolve();
+                return resolve(client);
             });
         });
+    }
+
+    async _createGlsnameView() {
+        const db = this._client.db('_CYBERWAY_');
+        const collectionExist = (await db.listCollections().toArray()).find(collection => {
+            return collection.name === 'glsname';
+        });
+
+        if (!collectionExist) {
+            await db.createCollection('glsname', {
+                viewOn: 'username',
+                pipeline: [{ $match: { scope: 'gls' } }, { $project: { owner: 1, name: 1 } }],
+            });
+        }
     }
 
     static getSequenceKey(items, limit) {
