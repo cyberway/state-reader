@@ -1,7 +1,8 @@
+const { MongoClient } = require('mongodb');
 const core = require('gls-core-service');
 const BasicController = core.controllers.Basic;
+
 const env = require('../data/env');
-const { MongoClient, ObjectId } = require('mongodb');
 
 class BlockChainMongo extends BasicController {
     async boot() {
@@ -12,6 +13,7 @@ class BlockChainMongo extends BasicController {
     async _initializeClient() {
         return new Promise((resolve, reject) => {
             const client = new MongoClient(env.GLS_CYBERWAY_MONGO_CONNECT);
+
             client.connect((err, client) => {
                 if (err) {
                     reject(err);
@@ -24,9 +26,10 @@ class BlockChainMongo extends BasicController {
 
     async _createGlsnameView() {
         const db = this._client.db('_CYBERWAY_');
-        const collectionExist = (await db.listCollections().toArray()).find(collection => {
-            return collection.name === 'glsname';
-        });
+
+        const collectionExist = (await db.listCollections().toArray()).find(
+            collection => collection.name === 'glsname'
+        );
 
         if (!collectionExist) {
             await db.createCollection('glsname', {
@@ -34,10 +37,6 @@ class BlockChainMongo extends BasicController {
                 pipeline: [{ $match: { scope: 'gls' } }, { $project: { owner: 1, name: 1 } }],
             });
         }
-    }
-
-    static getSequenceKey(items, limit) {
-        return items.length === limit ? items[items.length - 1]._id : null;
     }
 
     async getLeaders() {
@@ -98,7 +97,7 @@ class BlockChainMongo extends BasicController {
                 },
                 {
                     $project: {
-                        _id: true,
+                        _id: false,
                         account: true,
                         votes: true,
                         pct: { $divide: ['$votes', totalVotes] },
@@ -129,7 +128,7 @@ class BlockChainMongo extends BasicController {
 
         const items = await collection
             .find({})
-            .project({ id: false, _SERVICE_: false })
+            .project({ _id: false, id: false, _SERVICE_: false })
             .skip(offset)
             .limit(limit)
             .toArray();
@@ -144,6 +143,7 @@ class BlockChainMongo extends BasicController {
         const collection = db.collection('namebids');
 
         const projection = {
+            _id: false,
             newname: true,
             high_bidder: true,
             high_bid: true,
@@ -170,6 +170,7 @@ class BlockChainMongo extends BasicController {
                     $sort: {
                         high_bid: -1,
                         newname: 1,
+                        _id: 1,
                     },
                 },
                 {
