@@ -3,6 +3,7 @@ const core = require('gls-core-service');
 const BasicController = core.controllers.Basic;
 
 const env = require('../data/env');
+const { formatAsset, extractNumber, fixTimestamp } = require('../utils');
 
 class BlockChainMongo extends BasicController {
     async boot() {
@@ -132,6 +133,12 @@ class BlockChainMongo extends BasicController {
             .skip(offset)
             .limit(limit)
             .toArray();
+
+        for (const item of items) {
+            item.quantity = formatAsset(item.quantity);
+            item.interest_rate = extractNumber(item.interest_rate);
+            item.min_delegation_time = fixTimestamp(item.min_delegation_time);
+        }
 
         return {
             items,
