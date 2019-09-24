@@ -14,9 +14,10 @@ class BlockChainMongo extends BasicController {
             const client = new MongoClient(env.GLS_CYBERWAY_MONGO_CONNECT);
             client.connect((err, client) => {
                 if (err) {
-                    return reject(err);
+                    reject(err);
+                    return;
                 }
-                return resolve(client);
+                resolve(client);
             });
         });
     }
@@ -45,7 +46,7 @@ class BlockChainMongo extends BasicController {
 
         const query = { owner: 'gls', name: 'witn.smajor' };
 
-        const leaders = await collection
+        const items = await collection
             .aggregate([
                 { $match: query },
                 { $project: { account: '$auth.accounts.permission.actor' } },
@@ -58,38 +59,35 @@ class BlockChainMongo extends BasicController {
                         localField: 'account',
                     },
                 },
-                { $project: { account: 1, glsname: '$u.name' } },
+                {
+                    $project: {
+                        _id: false,
+                        account: true,
+                        glsname: { $arrayElemAt: ['$u.name', 0] },
+                    },
+                },
             ])
             .toArray();
 
-        return { leaders };
+        return { items };
     }
 
     async _getStakeStat() {
         const db = this._client.db('_CYBERWAY_');
-        const query = {};
-
         const collection = db.collection('stake_stat');
-        const stakeStat = await collection.find(query).toArray();
 
-        return stakeStat[0];
+        return await collection.findOne({});
     }
 
-    async getValidators({ sequenceKey = null, limit = 10 }) {
+    async getValidators({ offset, limit }) {
         const db = this._client.db('_CYBERWAY_');
         const collection = db.collection('stake_cand');
 
-        const query = { enabled: true };
-
-        if (sequenceKey) {
-            query._id = { $gt: ObjectId(sequenceKey) };
-        }
-
         const totalVotes = (await this._getStakeStat()).total_votes;
 
-        const validators = await collection
+        const items = await collection
             .aggregate([
-                { $match: query },
+                { $match: { enabled: true } },
                 {
                     $lookup: {
                         as: 'u',
@@ -100,72 +98,66 @@ class BlockChainMongo extends BasicController {
                 },
                 {
                     $project: {
-                        account: 1,
-                        glsname: { $arrayElemAt: ['$u.name', 0] },
-                        votes: 1,
-                        _id: 1,
+                        _id: true,
+                        account: true,
+                        votes: true,
                         pct: { $divide: ['$votes', totalVotes] },
+                        glsname: { $arrayElemAt: ['$u.name', 0] },
                     },
                 },
-                { $sort: { token_code: 1, enabled: 1, votes: -1, account: 1 } },
+                {
+                    $sort: {
+                        token_code: 1,
+                        enabled: 1,
+                        votes: -1,
+                        account: 1,
+                    },
+                },
             ])
+            .skip(offset)
             .limit(limit)
             .toArray();
 
-        const newSequenceKey = BlockChainMongo.getSequenceKey(validators, limit);
-
-        for (const validator of validators) {
-            delete validator._id;
-        }
-
         return {
-            validators,
-            sequenceKey: newSequenceKey,
+            items,
         };
     }
 
-    async getDelegations({ sequenceKey = null, limit = 10 }) {
+    async getDelegations({ offset, limit }) {
         const db = this._client.db('_CYBERWAY_gls_vesting');
-        const query = {};
-        if (sequenceKey) {
-            query._id = { $gt: ObjectId(sequenceKey) };
-        }
-
-        const projection = { id: false, _SERVICE_: false };
-
         const collection = db.collection('delegation');
-        const delegations = await collection
-            .find(query)
-            .project(projection)
+
+        const items = await collection
+            .find({})
+            .project({ id: false, _SERVICE_: false })
+            .skip(offset)
             .limit(limit)
             .toArray();
 
         return {
-            delegations,
-            sequenceKey: BlockChainMongo.getSequenceKey(delegations, limit),
+            items,
         };
     }
 
-    async getNameBids({ sequenceKey = null, limit = 10 }) {
+    async getNameBids({ offset, limit }) {
         const db = this._client.db('_CYBERWAY_');
-        const query = { high_bid: { $gt: 0 } };
-        if (sequenceKey) {
-            query._id = { $gt: ObjectId(sequenceKey) };
-        }
+        const collection = db.collection('namebids');
 
         const projection = {
-            newname: 1,
-            high_bidder: 1,
-            high_bid: 1,
-            last_bid_time: 1,
+            newname: true,
+            high_bidder: true,
+            high_bid: true,
+            last_bid_time: true,
             glsname: { $arrayElemAt: ['$u.name', 0] },
         };
 
-        const collection = db.collection('namebids');
-
-        const namebids = await collection
+        const items = await collection
             .aggregate([
-                { $match: query },
+                {
+                    $match: {
+                        high_bid: { $gt: 0 },
+                    },
+                },
                 {
                     $lookup: {
                         as: 'u',
@@ -174,33 +166,69 @@ class BlockChainMongo extends BasicController {
                         localField: 'high_bidder',
                     },
                 },
-                { $sort: { high_bid: -1, newname: 1 } },
+                {
+                    $sort: {
+                        high_bid: -1,
+                        newname: 1,
+                    },
+                },
                 {
                     $project: projection,
                 },
             ])
+            .skip(offset)
             .limit(limit)
             .toArray();
 
         return {
-            namebids,
-            sequenceKey: BlockChainMongo.getSequenceKey(namebids, limit),
+            items,
         };
     }
 
     async getLastClosedBid() {
         const db = this._client.db('_CYBERWAY_');
-        const query = {};
-
-        const projection = {
-            last_closed_bid: 1,
-        };
-
         const collection = db.collection('biosstate');
 
-        const bids = await collection.findOne(query, projection);
+        const bids = await collection.findOne(
+            {},
+            {
+                last_closed_bid: 1,
+            }
+        );
 
-        return { lastClosedBid: bids };
+        return {
+            lastClosedBid: bids,
+        };
+    }
+
+    async getReceivedGrants({ account, limit, offset }) {
+        const db = this._client.db('_CYBERWAY_');
+        const collection = db.collection('stake_grant');
+
+        const items = await collection
+            .find({
+                recipient_name: account,
+                share: { $gt: 0 },
+            })
+            .sort({
+                share: -1,
+                _id: 1,
+            })
+            .skip(offset)
+            .limit(limit)
+            .project({
+                _id: false,
+                grantor_name: true,
+                pct: true,
+                share: true,
+                break_fee: true,
+                break_min_own_staked: true,
+            })
+            .toArray();
+
+        return {
+            items,
+        };
     }
 }
 

@@ -33,7 +33,13 @@ class Connector extends BasicConnector {
                     scope: this._bcMongo,
                 },
                 getLastClosedBid: {
+                    inherits: ['pagination'],
                     handler: this._bcMongo.getLastClosedBid,
+                    scope: this._bcMongo,
+                },
+                getReceivedGrants: {
+                    inherits: ['pagination'],
+                    handler: this._bcMongo.getReceivedGrants,
                     scope: this._bcMongo,
                 },
             },
@@ -42,13 +48,13 @@ class Connector extends BasicConnector {
                     pagination: {
                         validation: {
                             properties: {
-                                sequenceKey: {
-                                    type: ['string', 'null'],
-                                    default: null,
+                                offset: {
+                                    type: 'number',
+                                    default: 0,
                                 },
                                 limit: {
                                     type: 'number',
-                                    default: 10,
+                                    default: 20,
                                 },
                             },
                         },
