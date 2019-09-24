@@ -123,12 +123,28 @@ class BlockChainMongo extends BasicController {
         };
     }
 
-    async getDelegations({ offset, limit }) {
+    async getDelegations({ userId, offset, limit, direction = 'out' }) {
         const db = this._client.db('_CYBERWAY_gls_vesting');
         const collection = db.collection('delegation');
 
+        const directionFilter = [];
+
+        if (direction === 'out') {
+            directionFilter.push({ delegator: userId });
+        }
+        
+        if (direction === 'in') {
+            directionFilter.push({ delegatee: userId });
+        }
+
+        if (direction === 'all') {
+            directionFilter.push({ delegator: userId }, { delegatee: userId });
+        }
+
         const items = await collection
-            .find({})
+            .find({
+                $or: directionFilter,
+            })
             .project({ _id: false, id: false, _SERVICE_: false })
             .skip(offset)
             .limit(limit)
