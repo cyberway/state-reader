@@ -142,15 +142,6 @@ class BlockChainMongo extends BasicController {
         const db = this._client.db('_CYBERWAY_');
         const collection = db.collection('namebids');
 
-        const projection = {
-            _id: false,
-            newname: true,
-            high_bidder: true,
-            high_bid: true,
-            last_bid_time: true,
-            glsname: { $arrayElemAt: ['$u.name', 0] },
-        };
-
         const items = await collection
             .aggregate([
                 {
@@ -174,7 +165,14 @@ class BlockChainMongo extends BasicController {
                     },
                 },
                 {
-                    $project: projection,
+                    $project: {
+                        _id: false,
+                        newname: true,
+                        high_bidder: true,
+                        high_bid: true,
+                        last_bid_time: true,
+                        glsname: { $arrayElemAt: ['$u.name', 0] },
+                    },
                 },
             ])
             .skip(offset)
