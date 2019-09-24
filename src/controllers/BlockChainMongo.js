@@ -79,7 +79,7 @@ class BlockChainMongo extends BasicController {
         return await collection.findOne({});
     }
 
-    async getValidators({ offset, limit }) {
+    async getValidators({ offset, limit, voterId }) {
         const db = this._client.db('_CYBERWAY_');
         const collection = db.collection('stake_cand');
 
@@ -118,9 +118,49 @@ class BlockChainMongo extends BasicController {
             .limit(limit)
             .toArray();
 
+        if (voterId) {
+            await this._populateGrantsByAccount(items, voterId);
+        }
+
         return {
             items,
         };
+    }
+
+    async _populateGrantsByAccount(items, account) {
+        const db = this._client.db('_CYBERWAY_');
+        const collection = db.collection('stake_grant');
+
+        const validatorsIds = items.map(({ account }) => account);
+
+        const myGrantsList = await collection
+            .aggregate([
+                {
+                    $match: {
+                        recipient_name: { $in: validatorsIds },
+                        grantor_name: account,
+                    },
+                },
+                {
+                    $group: {
+                        _id: '$recipient_name',
+                        totalShare: {
+                            $sum: '$share',
+                        },
+                    },
+                },
+            ])
+            .toArray();
+
+        const myGrants = new Map();
+
+        for (const grant of myGrantsList) {
+            myGrants.set(grant._id, grant.totalShare);
+        }
+
+        for (const item of items) {
+            item.myGrant = myGrants.get(item.account) || 0;
+        }
     }
 
     async getDelegations({ offset, limit }) {
