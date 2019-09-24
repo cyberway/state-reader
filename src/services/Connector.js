@@ -14,9 +14,18 @@ class Connector extends BasicConnector {
         await super.start({
             serverRoutes: {
                 getDelegations: {
-                    inherits: ['pagination'],
+                    inherits: ['pagination', 'userSpecific'],
                     handler: this._bcMongo.getDelegations,
                     scope: this._bcMongo,
+                    validation: {
+                        properties: {
+                            direction: {
+                                type: 'string',
+                                default: 'all',
+                                enum: ['in', 'out', 'all'],
+                            },
+                        },
+                    },
                 },
                 getValidators: {
                     inherits: ['pagination'],
@@ -55,6 +64,16 @@ class Connector extends BasicConnector {
                                 limit: {
                                     type: 'number',
                                     default: 20,
+                                },
+                            },
+                        },
+                    },
+                    userSpecific: {
+                        validation: {
+                            required: ['userId'],
+                            properties: {
+                                userId: {
+                                    type: 'string',
                                 },
                             },
                         },

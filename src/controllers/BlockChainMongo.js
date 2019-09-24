@@ -123,7 +123,7 @@ class BlockChainMongo extends BasicController {
         };
     }
 
-    async getDelegations({ userId, offset, limit, direction = 'out' }) {
+    async getDelegations({ userId, offset, limit, direction }) {
         const db = this._client.db('_CYBERWAY_gls_vesting');
         const collection = db.collection('delegation');
 
@@ -132,7 +132,7 @@ class BlockChainMongo extends BasicController {
         if (direction === 'out') {
             directionFilter.push({ delegator: userId });
         }
-        
+
         if (direction === 'in') {
             directionFilter.push({ delegatee: userId });
         }
