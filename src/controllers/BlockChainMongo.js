@@ -159,7 +159,9 @@ class BlockChainMongo extends BasicController {
         }
 
         for (const item of items) {
-            item.myGrant = myGrants.get(item.account) || 0;
+            item.myGrant = {
+                share: myGrants.get(item.account) || 0,
+            };
         }
     }
 
