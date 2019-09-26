@@ -119,15 +119,21 @@ class BlockChainMongo extends BasicController {
             .toArray();
 
         if (voterId) {
-            const myGrants = await this._populateGrantsByAccount(
+            const grants = await this._getGrantsByAccount(
                 items.map(({ account }) => account),
                 voterId
             );
 
             for (const item of items) {
-                item.myGrant = {
-                    share: myGrants.get(item.account) || 0,
-                };
+                const share = grants.get(item.account);
+
+                if (share) {
+                    item.grant = {
+                        share,
+                    };
+                } else {
+                    item.grant = null;
+                }
             }
         }
 
@@ -136,11 +142,11 @@ class BlockChainMongo extends BasicController {
         };
     }
 
-    async _populateGrantsByAccount(receiverIds, account) {
+    async _getGrantsByAccount(receiverIds, account) {
         const db = this._client.db('_CYBERWAY_');
         const collection = db.collection('stake_grant');
 
-        const myGrantsList = await collection
+        const grants = await collection
             .aggregate([
                 {
                     $match: {
@@ -159,13 +165,13 @@ class BlockChainMongo extends BasicController {
             ])
             .toArray();
 
-        const myGrants = new Map();
+        const grantsMap = new Map();
 
-        for (const grant of myGrantsList) {
-            myGrants.set(grant._id, grant.totalShare);
+        for (const grant of grants) {
+            grantsMap.set(grant._id, grant.totalShare);
         }
 
-        return myGrants;
+        return grantsMap;
     }
 
     async getDelegations({ offset, limit }) {
