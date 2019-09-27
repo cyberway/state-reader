@@ -287,6 +287,34 @@ class BlockChainMongo extends BasicController {
             items,
         };
     }
+
+    async getTokens() {
+        const db = this._client.db('_CYBERWAY_cyber_token');
+        const collection = db.collection('stat');
+
+        const items = await collection
+            .find({})
+            .project({
+                _id: false,
+                issuer: true,
+                supply: true,
+                max_supply: true,
+                '_SERVICE_.scope': true,
+            })
+            .toArray();
+
+        for (const item of items) {
+            item.symbol = item._SERVICE_.scope;
+            item.supply = formatAsset(item.supply);
+            item.maxSupply = formatAsset(item.max_supply);
+            delete item.max_supply;
+            delete item._SERVICE_;
+        }
+
+        return {
+            items,
+        };
+    }
 }
 
 module.exports = BlockChainMongo;
