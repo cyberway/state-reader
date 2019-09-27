@@ -192,20 +192,29 @@ class BlockChainMongo extends BasicController {
             directionFilter.push({ delegator: userId }, { delegatee: userId });
         }
 
-        const items = await collection
+        const results = await collection
             .find({
                 $or: directionFilter,
             })
-            .project({ _id: false, id: false, _SERVICE_: false })
+            .project({
+                _id: false,
+                delegator: true,
+                delegatee: true,
+                quantity: true,
+                interest_rate: true,
+                min_delegation_time: true,
+            })
             .skip(offset)
             .limit(limit)
             .toArray();
 
-        for (const item of items) {
-            item.quantity = formatAsset(item.quantity);
-            item.interest_rate = extractNumber(item.interest_rate);
-            item.min_delegation_time = fixTimestamp(item.min_delegation_time);
-        }
+        const items = results.map(item => ({
+            delegator: item.delegator,
+            delegatee: item.delegatee,
+            quantity: formatAsset(item.quantity),
+            interestRate: extractNumber(item.interest_rate),
+            minDelegationTime: fixTimestamp(item.min_delegation_time),
+        }));
 
         return {
             items,
@@ -216,7 +225,7 @@ class BlockChainMongo extends BasicController {
         const db = this._client.db('_CYBERWAY_');
         const collection = db.collection('namebids');
 
-        const items = await collection
+        const results = await collection
             .aggregate([
                 {
                     $match: {
@@ -253,6 +262,14 @@ class BlockChainMongo extends BasicController {
             .limit(limit)
             .toArray();
 
+        const items = results.map(item => ({
+            newName: item.newname,
+            highBidder: item.high_bidder,
+            highBid: item.high_bid,
+            lastBidTime: item.last_bid_time,
+            glsName: item.glsname,
+        }));
+
         return {
             items,
         };
@@ -262,15 +279,15 @@ class BlockChainMongo extends BasicController {
         const db = this._client.db('_CYBERWAY_');
         const collection = db.collection('biosstate');
 
-        const bids = await collection.findOne(
+        const bid = await collection.findOne(
             {},
             {
-                last_closed_bid: 1,
+                last_closed_bid: true,
             }
         );
 
         return {
-            lastClosedBid: bids,
+            lastClosedBid: bid.last_closed_bid,
         };
     }
 
