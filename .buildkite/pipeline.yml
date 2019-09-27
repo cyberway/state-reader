@@ -5,7 +5,7 @@ steps:
   - wait
 
   - label: ":partyparrot: deploy to staging"
-    command: "ansible-playbook -i \"$SECRET_STAGE_SERVER_IP,\" -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml --vault-password-file ~/vault_pass --private-key ~/.ssh/id_ed25519_state_reader"
+    command: "ansible-playbook -i \"$SECRET_STAGE_SERVER_IP,\" -e \"deploy_tag=dev-$BUILDKITE_BRANCH-$BUILDKITE_BUILD_NUMBER\" playbooks/deploy.yaml --vault-password-file ~/vault_pass --private-key ~/.ssh/id_ed25519_state_reader"
   
   - wait
 
