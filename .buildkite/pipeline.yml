@@ -1,0 +1,23 @@
+steps:
+
+  - group: Build
+    steps:
+      - name: ":docker: build and upload image"
+        command: ".buildkite/steps/build.sh"
+
+  - wait
+
+  - label: ":partyparrot: deploy to staging"
+    command: "ansible-playbook -i \"$SECRET_STAGE_SERVER_IP,\" -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml"
+  
+  - wait
+
+  - block: "Release?"
+    prompt: "Deploy to prod?"
+    branches: master
+
+  - wait
+
+  - name: ":rocket: deploy to prod"
+    command: "ansible-playbook -i \"$SECRET_PROD_SERVER_IP,\" -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml"
+    branches: master
