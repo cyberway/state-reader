@@ -278,7 +278,7 @@ class BlockChainMongo extends BasicController {
         const db = this._client.db('_CYBERWAY_');
         const collection = db.collection('stake_grant');
 
-        const items = await collection
+        const results = await collection
             .find({
                 recipient_name: account,
                 share: { $gt: 0 },
@@ -298,6 +298,14 @@ class BlockChainMongo extends BasicController {
                 break_min_own_staked: true,
             })
             .toArray();
+
+        const items = results.map(item => ({
+            grantor: item.grantor_name,
+            pct: item.pct,
+            share: item.share,
+            breakFee: item.break_fee,
+            breakMinOwnStaked: item.break_min_own_staked,
+        }));
 
         return {
             items,
