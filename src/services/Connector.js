@@ -31,6 +31,13 @@ class Connector extends BasicConnector {
                     inherits: ['pagination'],
                     handler: this._bcMongo.getValidators,
                     scope: this._bcMongo,
+                    validation: {
+                        properties: {
+                            voterId: {
+                                type: ['string', 'null'],
+                            },
+                        },
+                    },
                 },
                 getLeaders: {
                     handler: this._bcMongo.getLeaders,
