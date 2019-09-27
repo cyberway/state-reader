@@ -16,5 +16,5 @@ steps:
   - wait
 
   - label: ":rocket: deploy to prod"
-    command: "ansible-playbook -i \"$SECRET_PROD_SERVER_IP,\" -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml --vault-password-file ~/vault_pass --private-key ~/.ssh/id_ed25519_state_reader"
+    command: "ansible-playbook -i \"$SECRET_PROD_SERVER_IP,\" --tags fast -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml --vault-password-file ~/vault_pass --private-key ~/.ssh/id_ed25519_state_reader"
     branches: master

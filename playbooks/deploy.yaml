@@ -6,6 +6,16 @@
 
   tasks:
 
+  - name: deploy_tag check
+    assert:
+      that:
+        - deploy_tag is defined
+        - deploy_tag != ""
+      fail_msg: "Define deploy_tag!"
+      success_msg: "deploy_tag is defined: {{ deploy_tag }}"
+    tags:
+      - fast
+
   - name: Add key
     apt_key:
       url: "https://download.docker.com/linux/ubuntu/gpg"
@@ -19,7 +29,7 @@
   - name: Install Docker
     apt:
       name: docker-ce
-      state: latest
+      state: present
       update_cache: yes
     ignore_errors: yes
   
@@ -43,12 +53,16 @@
     docker_login:
       username: "{{ lookup('env','DHUBU') }}"
       password: "{{ lookup('env','DHUBP') }}"
+    tags:
+      - fast
 
   - name: Get docker image
     docker_image:
       name: "cyberway/state-reader:{{ deploy_tag | default('latest') }}"
       state: present
       force: yes
+    tags:
+      - fast
 
   - name: Create env directory
     file:
@@ -56,6 +70,8 @@
       path: /opt/state-reader
       owner: deploy
       group: deploy
+    tags:
+      - fast
 
   - name: Decrypt and copy .env
     copy:
@@ -64,6 +80,8 @@
       owner: root
       group: root
       mode: 0600
+    tags:
+      - fast
 
   - name: Stop old container
     docker_container:
@@ -71,6 +89,8 @@
       state: stopped
       stop_timeout: 60
     ignore_errors: yes
+    tags:
+      - fast
 
   - name: Start new container
     docker_container:
@@ -88,7 +108,10 @@
       - "9777:9777"
       - "3000:3000"
       detach: yes
+      log_driver: json-file
       log_options:
         max-file: "2"
         max-size: "1024m"
       env_file: "/opt/state-reader/.env"
+    tags:
+      - fast
