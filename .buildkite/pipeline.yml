@@ -1,14 +1,14 @@
 steps:
 
-  - group: Build
-    steps:
-      - name: ":docker: build and upload image"
-        command: ".buildkite/steps/build.sh"
+  - label: ":docker: build and upload image"
+    command: ".buildkite/steps/build.sh"
+    id: with-vault
 
   - wait
 
   - label: ":partyparrot: deploy to staging"
-    command: "ansible-playbook -i \"$SECRET_STAGE_SERVER_IP,\" -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml"
+    command: "ansible-playbook -i \"$SECRET_STAGE_SERVER_IP,\" -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml --vault-password-file ~/vault_pass"
+    id: with-vault
   
   - wait
 
@@ -19,5 +19,6 @@ steps:
   - wait
 
   - name: ":rocket: deploy to prod"
-    command: "ansible-playbook -i \"$SECRET_PROD_SERVER_IP,\" -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml"
+    command: "ansible-playbook -i \"$SECRET_PROD_SERVER_IP,\" -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml --vault-password-file ~/vault_pass"
     branches: master
+    id: with-vault

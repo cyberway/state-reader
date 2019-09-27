@@ -48,6 +48,21 @@
       state: present
       force: yes
 
+  - name: Create env directory
+    file:
+      state: directory
+      path: /opt/state-reader
+      owner: deploy
+      group: deploy
+
+  - name: Decrypt and copy .env
+    copy:
+      src: "configs/.env.vault"
+      dest: "/opt/state-reader/.env"
+      owner: root
+      group: root
+      mode: 0600
+
   - name: Stop old container
     docker_container:
       name: "state-reader"
@@ -55,18 +70,23 @@
       stop_timeout: 60
     ignore_errors: yes
 
-  - name: Start the new container
+  - name: Start new container
     docker_container:
       name: "state-reader"
       image: "cyberway/state-reader:{{ deploy_tag | default('latest') }}"
       state: started
       restart: yes
       restart_policy: unless-stopped
-      #network_mode: host
       network_mode: bridge
+      networks:
+        - name: cyberway_cyberway-net
+          links:
+            - cyberway_cyberway-net
       ports:
-      - "{{ deploy_port }}:80"
-      detach: true
+      - "9777:9777"
+      - "3000:3000"
+      detach: yes
       log_options:
         max-file: "2"
         max-size: "1024m"
+      env_file: "/opt/state-reader/.env"
