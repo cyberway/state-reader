@@ -19,7 +19,9 @@ function formatAsset(value) {
 
     const bigNum = new BigNum(value._amount);
 
-    return `${bigNum.shiftedBy(-Number(value._decs.toString()))} ${value._sym}`;
+    const decs = Number(value._decs.toString());
+
+    return `${bigNum.shiftedBy(-decs).toFixed(decs)} ${value._sym}`;
 }
 
 function extractNumber(value) {

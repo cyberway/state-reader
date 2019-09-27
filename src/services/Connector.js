@@ -42,21 +42,30 @@ class Connector extends BasicConnector {
                 getLeaders: {
                     handler: this._bcMongo.getLeaders,
                     scope: this._bcMongo,
+                    validation: {},
                 },
                 getNameBids: {
                     inherits: ['pagination'],
                     handler: this._bcMongo.getNameBids,
                     scope: this._bcMongo,
+                    validation: {},
                 },
                 getLastClosedBid: {
                     inherits: ['pagination'],
                     handler: this._bcMongo.getLastClosedBid,
                     scope: this._bcMongo,
+                    validation: {},
                 },
                 getReceivedGrants: {
                     inherits: ['pagination'],
                     handler: this._bcMongo.getReceivedGrants,
                     scope: this._bcMongo,
+                    validation: {},
+                },
+                getTokens: {
+                    handler: this._bcMongo.getTokens,
+                    scope: this._bcMongo,
+                    validation: {},
                 },
             },
             serverDefaults: {
