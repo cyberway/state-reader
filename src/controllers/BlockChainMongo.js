@@ -81,7 +81,6 @@ class BlockChainMongo extends BasicController {
             {
                 _id: false,
                 id: true,
-                _SERVICE_: false,
                 ...fields,
             }
         );
