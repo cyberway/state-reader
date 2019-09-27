@@ -63,7 +63,7 @@ class BlockChainMongo extends BasicController {
                     $project: {
                         _id: false,
                         account: true,
-                        glsname: { $arrayElemAt: ['$u.name', 0] },
+                        glsName: { $arrayElemAt: ['$u.name', 0] },
                     },
                 },
             ])
@@ -72,18 +72,26 @@ class BlockChainMongo extends BasicController {
         return { items };
     }
 
-    async _getStakeStat() {
+    async _getStakeStat(fields) {
         const db = this._client.db('_CYBERWAY_');
         const collection = db.collection('stake_stat');
 
-        return await collection.findOne({});
+        return await collection.findOne(
+            {},
+            {
+                _id: false,
+                id: true,
+                _SERVICE_: false,
+                ...fields,
+            }
+        );
     }
 
     async getValidators({ offset, limit, voterId }) {
         const db = this._client.db('_CYBERWAY_');
         const collection = db.collection('stake_cand');
 
-        const totalVotes = (await this._getStakeStat()).total_votes;
+        const totalVotes = (await this._getStakeStat({ total_votes: true })).total_votes;
 
         const items = await collection
             .aggregate([
@@ -101,8 +109,8 @@ class BlockChainMongo extends BasicController {
                         _id: false,
                         account: true,
                         votes: true,
-                        pct: { $divide: ['$votes', totalVotes] },
-                        glsname: { $arrayElemAt: ['$u.name', 0] },
+                        percent: { $divide: ['$votes', totalVotes] },
+                        glsName: { $arrayElemAt: ['$u.name', 0] },
                     },
                 },
                 {
@@ -318,7 +326,7 @@ class BlockChainMongo extends BasicController {
 
         const items = results.map(item => ({
             grantor: item.grantor_name,
-            pct: item.pct,
+            percent: item.pct,
             share: item.share,
             breakFee: item.break_fee,
             breakMinOwnStaked: item.break_min_own_staked,
