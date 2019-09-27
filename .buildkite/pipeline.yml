@@ -1,5 +1,5 @@
 steps:
-  - label: ":docker: build and upload image"
+  - label: ":docker: build dev image"
     command: .buildkite/steps/build.sh
 
   - wait
