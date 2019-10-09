@@ -67,6 +67,48 @@ class Connector extends BasicConnector {
                     scope: this._bcMongo,
                     validation: {},
                 },
+                getBalances: {
+                    handler: this._bcMongo.getBalances,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['accounts'],
+                        properties: {
+                            accounts: {
+                                type: 'array',
+                                items: { type: 'string' },
+                                minItems: 1,
+                                maxItems: 100,
+                            },
+                        },
+                    },
+                },
+                getTopBalances: {
+                    inherits: ['pagination'],
+                    handler: this._bcMongo.getTopBalances,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['token'],
+                        properties: {
+                            token: { type: 'string' },
+                        },
+                    },
+                },
+                getUsernames: {
+                    handler: this._bcMongo.getUsernames,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['accounts'],
+                        properties: {
+                            scope: { type: 'string' },
+                            accounts: {
+                                type: 'array',
+                                items: { type: 'string' },
+                                minItems: 1,
+                                maxItems: 100,
+                            },
+                        },
+                    },
+                },
             },
             serverDefaults: {
                 parents: {
