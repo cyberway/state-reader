@@ -362,6 +362,63 @@ class BlockChainMongo extends BasicController {
             items,
         };
     }
+
+    async getBalances({ accounts }) {
+        const db = this._client.db('_CYBERWAY_cyber_token');
+        const collection = db.collection('accounts');
+        const results = await collection
+            .find({ '_SERVICE_.scope': { $in: accounts } })
+            .project({
+                _id: false,
+                balance: true,
+                payments: true,
+                '_SERVICE_.scope': true,
+            })
+            .toArray();
+
+        const items = results.map(item => ({
+            account: item._SERVICE_.scope,
+            symbol: item.balance._sym,
+            balance: formatAsset(item.balance),
+            payments: formatAsset(item.payments),
+        }));
+
+        return { items };
+    }
+
+    async getTopBalances({ token, offset, limit }) {
+        const db = this._client.db('_CYBERWAY_cyber_token');
+        const collection = db.collection('accounts');
+        const results = await collection
+            .find({ 'balance._sym': token })
+            .sort({ 'balance._amount': -1 })
+            .skip(offset)
+            .limit(limit)
+            .project({
+                _id: false,
+                balance: true,
+                '_SERVICE_.scope': true,
+            })
+            .toArray();
+
+        const items = results.map(item => ({
+            account: item._SERVICE_.scope,
+            balance: formatAsset(item.balance),
+        }));
+
+        return { items };
+    }
+
+    async getUsernames({ accounts, scope }) {
+        const db = this._client.db('_CYBERWAY_');
+        const collection = db.collection('username');
+        const items = await collection
+            .find({ scope: scope === undefined ? 'gls' : scope, owner: { $in: accounts } })
+            .project({ _id: false, owner: true, name: true })
+            .toArray();
+
+        return { items };
+    }
 }
 
 module.exports = BlockChainMongo;

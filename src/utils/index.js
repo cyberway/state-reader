@@ -12,7 +12,7 @@ function formatAsset(value) {
         return value;
     }
 
-    if (!value._amount || !value._decs || !value._sym) {
+    if (value._amount === undefined || !value._decs || !value._sym) {
         Logger.error('Invalid asset format:', value);
         throw new Error('Invalid asset format');
     }
