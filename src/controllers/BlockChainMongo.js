@@ -1,9 +1,20 @@
 const { MongoClient } = require('mongodb');
 const core = require('gls-core-service');
 const BasicController = core.controllers.Basic;
+// const { Logger } = core.utils;
 
 const env = require('../data/env');
-const { formatAsset, extractNumber, fixTimestamp } = require('../utils');
+const {
+    formatAsset,
+    extractNumber,
+    fixTimestamp,
+    fixKnownMongoObject,
+    isPlainObject,
+    snakeToCamel,
+    renameFields,
+} = require('../utils');
+
+const MONGO_DB_PREFIX = '_CYBERWAY_'; // node can be configured to use other prefix (several nodes with 1 mongodb)
 
 class BlockChainMongo extends BasicController {
     async boot() {
@@ -26,7 +37,7 @@ class BlockChainMongo extends BasicController {
     }
 
     async _createGlsnameView() {
-        const db = this._client.db('_CYBERWAY_');
+        const db = this._client.db(MONGO_DB_PREFIX);
 
         const collectionExist = (await db.listCollections().toArray()).find(
             collection => collection.name === 'glsname'
@@ -40,9 +51,65 @@ class BlockChainMongo extends BasicController {
         }
     }
 
+    _collection({ dbName, name }) {
+        const db = this._client.db(MONGO_DB_PREFIX + (dbName || ''));
+        return db.collection(name);
+    }
+
+    // "2019-08-15T18:16:30.000"
+    _isCyberwayDate(s) {
+        const looksLikeDate = typeof s == 'string' && s.length == 23 && s[10] == 'T';
+        if (looksLikeDate) {
+            const d = Date.parse(s);
+            return !isNaN(d) && d != Date(s + 'Z');
+        }
+        return false;
+    }
+
+    _fixMongoObject(o) {
+        let result = o;
+
+        if (Array.isArray(o)) {
+            result = o.map(x => this._fixMongoObject(x));
+        } else if (isPlainObject(o)) {
+            const [fixed, value] = fixKnownMongoObject(o);
+            if (fixed) {
+                result = value;
+            } else {
+                result = {};
+                for (const [key, val] of Object.entries(o)) {
+                    result[snakeToCamel(key)] = this._fixMongoObject(val);
+                }
+            }
+        } else if (this._isCyberwayDate(o)) {
+            return fixTimestamp(o);
+        }
+
+        return result;
+    }
+
+    _fixMongoResult(data, rename) {
+        if (!data) {
+            return data;
+        }
+
+        const fixed = this._fixMongoObject(data);
+        const array = [].concat(fixed);
+        const renamed = rename ? array.map(item => renameFields(item, rename)) : array;
+        return Array.isArray(data) ? renamed : renamed[0];
+    }
+
+    _makeProjection(fields, value = true) {
+        // return Object.fromEntries((fields || []).map(field => [field, true]));
+        const result = {};
+        for (const field of fields || []) {
+            result[field] = value;
+        }
+        return result;
+    }
+
     async getLeaders() {
-        const db = this._client.db('_CYBERWAY_');
-        const collection = db.collection('permission');
+        const collection = this._collection({ name: 'permission' });
 
         const query = { owner: 'gls', name: 'witn.smajor' };
 
@@ -72,25 +139,28 @@ class BlockChainMongo extends BasicController {
         return { items };
     }
 
-    async _getStakeStat(fields) {
-        const db = this._client.db('_CYBERWAY_');
-        const collection = db.collection('stake_stat');
+    // fields: [id, token_code, total_staked, total_votes, last_reward, enabled]
+    async getStakeStat({ fields }) {
+        const collection = this._collection({ name: 'stake_stat' });
 
-        return await collection.findOne(
+        const state = await collection.findOne(
             {},
             {
-                _id: false,
-                id: true,
-                ...fields,
+                projection: {
+                    _id: false,
+                    token_code: true,
+                    ...this._makeProjection(fields),
+                },
             }
         );
+
+        return this._fixMongoResult(state);
     }
 
     async getValidators({ offset, limit, voterId }) {
-        const db = this._client.db('_CYBERWAY_');
-        const collection = db.collection('stake_cand');
+        const collection = this._collection({ name: 'stake_cand' });
 
-        const totalVotes = (await this._getStakeStat({ total_votes: true })).total_votes;
+        const { totalVotes } = await this.getStakeStat({ fields: ['total_votes'] });
 
         const items = await collection
             .aggregate([
@@ -150,8 +220,7 @@ class BlockChainMongo extends BasicController {
     }
 
     async _getGrantsByAccount(receiverIds, account) {
-        const db = this._client.db('_CYBERWAY_');
-        const collection = db.collection('stake_grant');
+        const collection = this._collection({ name: 'stake_grant' });
 
         const grants = await collection
             .aggregate([
@@ -182,35 +251,34 @@ class BlockChainMongo extends BasicController {
     }
 
     async getDelegations({ userId, offset, limit, direction }) {
-        const db = this._client.db('_CYBERWAY_gls_vesting');
-        const collection = db.collection('delegation');
+        const collection = this._collection({ dbName: 'gls_vesting', name: 'delegation' });
 
         const directionFilter = [];
 
-        if (direction === 'out') {
+        if (direction === 'out' || direction === 'all') {
             directionFilter.push({ delegator: userId });
         }
 
-        if (direction === 'in') {
+        if (direction === 'in' || direction === 'all') {
             directionFilter.push({ delegatee: userId });
         }
 
-        if (direction === 'all') {
-            directionFilter.push({ delegator: userId }, { delegatee: userId });
-        }
-
         const results = await collection
-            .find({
-                $or: directionFilter,
-            })
-            .project({
-                _id: false,
-                delegator: true,
-                delegatee: true,
-                quantity: true,
-                interest_rate: true,
-                min_delegation_time: true,
-            })
+            .find(
+                {
+                    $or: directionFilter,
+                },
+                {
+                    projection: {
+                        _id: false,
+                        delegator: true,
+                        delegatee: true,
+                        quantity: true,
+                        interest_rate: true,
+                        min_delegation_time: true,
+                    },
+                }
+            )
             .skip(offset)
             .limit(limit)
             .toArray();
@@ -229,8 +297,7 @@ class BlockChainMongo extends BasicController {
     }
 
     async getNameBids({ offset, limit }) {
-        const db = this._client.db('_CYBERWAY_');
-        const collection = db.collection('namebids');
+        const collection = this._collection({ name: 'namebids' });
 
         const results = await collection
             .aggregate([
@@ -261,7 +328,7 @@ class BlockChainMongo extends BasicController {
                         high_bidder: true,
                         high_bid: true,
                         last_bid_time: true,
-                        glsname: { $arrayElemAt: ['$u.name', 0] },
+                        glsName: { $arrayElemAt: ['$u.name', 0] },
                     },
                 },
             ])
@@ -269,58 +336,45 @@ class BlockChainMongo extends BasicController {
             .limit(limit)
             .toArray();
 
-        const items = results.map(item => ({
-            newName: item.newname,
-            highBidder: item.high_bidder,
-            highBid: item.high_bid,
-            lastBidTime: item.last_bid_time,
-            glsName: item.glsname,
-        }));
-
-        return {
-            items,
-        };
+        return { items: this._fixMongoResult(results, { newname: 'newName' }) };
     }
 
     async getLastClosedBid() {
-        const db = this._client.db('_CYBERWAY_');
-        const collection = db.collection('biosstate');
-
+        const collection = this._collection({ name: 'biosstate' });
         const bid = await collection.findOne(
             {},
-            {
-                last_closed_bid: true,
-            }
+            { projection: { _id: false, last_close_bid: true } }
         );
 
-        return {
-            lastClosedBid: bid.last_closed_bid,
-        };
+        return this._fixMongoResult(bid, { lastCloseBid: 'lastClosedBid' });
     }
 
     async getReceivedGrants({ account, limit, offset }) {
-        const db = this._client.db('_CYBERWAY_');
-        const collection = db.collection('stake_grant');
+        const collection = this._collection({ name: 'stake_grant' });
 
         const results = await collection
-            .find({
-                recipient_name: account,
-                share: { $gt: 0 },
-            })
+            .find(
+                {
+                    recipient_name: account,
+                    share: { $gt: 0 },
+                },
+                {
+                    projection: {
+                        _id: false,
+                        grantor_name: true,
+                        pct: true,
+                        share: true,
+                        break_fee: true,
+                        break_min_own_staked: true,
+                    },
+                }
+            )
             .sort({
                 share: -1,
                 _id: 1,
             })
             .skip(offset)
             .limit(limit)
-            .project({
-                _id: false,
-                grantor_name: true,
-                pct: true,
-                share: true,
-                break_fee: true,
-                break_min_own_staked: true,
-            })
             .toArray();
 
         const items = results.map(item => ({
@@ -337,46 +391,49 @@ class BlockChainMongo extends BasicController {
     }
 
     async getTokens() {
-        const db = this._client.db('_CYBERWAY_cyber_token');
-        const collection = db.collection('stat');
+        const collection = this._collection({ dbName: 'cyber_token', name: 'stat' });
 
-        const results = await collection
-            .find({})
-            .project({
-                _id: false,
-                issuer: true,
-                supply: true,
-                max_supply: true,
-                '_SERVICE_.scope': true,
-            })
+        const result = await collection
+            .find(
+                {},
+                {
+                    projection: {
+                        _id: false,
+                        issuer: true,
+                        supply: true,
+                        max_supply: true,
+                        '_SERVICE_.scope': true,
+                    },
+                }
+            )
             .toArray();
 
-        const items = results.map(item => ({
-            symbol: item._SERVICE_.scope,
-            issuer: item.issuer,
-            supply: formatAsset(item.supply),
-            maxSupply: formatAsset(item.max_supply),
-        }));
-
         return {
-            items,
+            items: this._fixMongoResult(result).map(x => ({
+                ...x,
+                symbol: x._SERVICE_.scope,
+                _SERVICE_: undefined,
+            })),
         };
     }
 
     async getBalances({ accounts }) {
-        const db = this._client.db('_CYBERWAY_cyber_token');
-        const collection = db.collection('accounts');
-        const results = await collection
-            .find({ '_SERVICE_.scope': { $in: accounts } })
-            .project({
-                _id: false,
-                balance: true,
-                payments: true,
-                '_SERVICE_.scope': true,
-            })
+        const collection = this._collection({ dbName: 'cyber_token', name: 'accounts' });
+        const result = await collection
+            .find(
+                { '_SERVICE_.scope': { $in: accounts } },
+                {
+                    projection: {
+                        _id: false,
+                        balance: true,
+                        payments: true,
+                        '_SERVICE_.scope': true,
+                    },
+                }
+            )
             .toArray();
 
-        const items = results.map(item => ({
+        const items = result.map(item => ({
             account: item._SERVICE_.scope,
             symbol: item.balance._sym,
             balance: formatAsset(item.balance),
@@ -387,37 +444,95 @@ class BlockChainMongo extends BasicController {
     }
 
     async getTopBalances({ token, offset, limit }) {
-        const db = this._client.db('_CYBERWAY_cyber_token');
-        const collection = db.collection('accounts');
-        const results = await collection
-            .find({ 'balance._sym': token })
+        const collection = this._collection({ dbName: 'cyber_token', name: 'accounts' });
+        const result = await collection
+            .find(
+                { 'balance._sym': token },
+                {
+                    projection: {
+                        _id: false,
+                        balance: true,
+                        '_SERVICE_.scope': true,
+                    },
+                }
+            )
             .sort({ 'balance._amount': -1 })
             .skip(offset)
             .limit(limit)
-            .project({
-                _id: false,
-                balance: true,
-                '_SERVICE_.scope': true,
-            })
             .toArray();
 
-        const items = results.map(item => ({
-            account: item._SERVICE_.scope,
-            balance: formatAsset(item.balance),
+        const items = this._fixMongoResult(result).map(x => ({
+            ...x,
+            account: x._SERVICE_.scope,
+            _SERVICE_: undefined,
         }));
-
         return { items };
     }
 
     async getUsernames({ accounts, scope }) {
-        const db = this._client.db('_CYBERWAY_');
-        const collection = db.collection('username');
+        const collection = this._collection({ name: 'username' });
         const items = await collection
-            .find({ scope: scope === undefined ? 'gls' : scope, owner: { $in: accounts } })
-            .project({ _id: false, owner: true, name: true })
+            .find(
+                { scope: scope === undefined ? 'gls' : scope, owner: { $in: accounts } },
+                { projection: { _id: false, owner: true, name: true } }
+            )
             .toArray();
 
         return { items };
+    }
+
+    // fields: [account, proxy_level, fee, min_own_staked, balance, proxied, own_share, shares_sum, provided, received, last_proxied_update]
+    async getStakeAgents({ accounts, fields }) {
+        const collection = this._collection({ name: 'stake_agent' });
+        const agents = await collection
+            .find(
+                { token_code: 'CYBER', account: { $in: accounts } },
+                { projection: { _id: false, account: true, ...this._makeProjection(fields) } }
+            )
+            .toArray();
+
+        return { items: this._fixMongoResult(agents) };
+    }
+
+    // Note: `fields` argument is somewhat tricky when combined with renameFields and toCamel:
+    // user sets fields in db non-renamed format ("break_fee", "recipient_name"),
+    // but gets result with renamed fields ("breakFee", "recipient").
+    // TODO: resolve
+    // fields: [token_code, grantor_name, recipient_name, pct, share, break_fee, break_min_own_staked]
+    async getStakeGrants({ grantor, fields }) {
+        const collection = this._collection({ name: 'stake_grant' });
+        const grants = await collection
+            .find(
+                { token_code: 'CYBER', grantor_name: grantor },
+                {
+                    projection: {
+                        _id: false,
+                        recipient_name: true,
+                        ...this._makeProjection(fields),
+                    },
+                }
+            )
+            .toArray();
+
+        const renames = { grantorName: 'grantor', recipientName: 'recipient', pct: 'percent' };
+        return { items: this._fixMongoResult(grants, renames) };
+    }
+
+    // token_code, account, latest_pick, votes, priority, signing_key, enabled
+    async getStakeCandidates({ filter, offset, limit }) {
+        const collection = this._collection({ name: 'stake_cand' });
+        const fields = 'account,latest_pick,votes,signing_key,enabled'.split(',');
+        const candidates = await collection
+            .find(
+                { token_code: 'CYBER', ...(filter || {}) },
+                { projection: { _id: false, ...this._makeProjection(fields) } }
+            )
+            .sort({ votes: -1 })
+            .skip(offset)
+            .limit(limit)
+            .toArray();
+
+        return { items: this._fixMongoResult(candidates) };
     }
 }
 
