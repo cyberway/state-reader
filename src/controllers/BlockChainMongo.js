@@ -1,7 +1,6 @@
 const { MongoClient } = require('mongodb');
 const core = require('gls-core-service');
 const BasicController = core.controllers.Basic;
-// const { Logger } = core.utils;
 
 const env = require('../data/env');
 const {
@@ -58,12 +57,9 @@ class BlockChainMongo extends BasicController {
 
     // "2019-08-15T18:16:30.000"
     _isCyberwayDate(s) {
-        const looksLikeDate = typeof s == 'string' && s.length == 23 && s[10] == 'T';
-        if (looksLikeDate) {
-            const d = Date.parse(s);
-            return !isNaN(d) && d != Date(s + 'Z');
-        }
-        return false;
+        return Boolean(
+            s && typeof s === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}$/.test(s)
+        );
     }
 
     _fixMongoObject(o) {
