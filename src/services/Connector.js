@@ -60,7 +60,12 @@ class Connector extends BasicConnector {
                     inherits: ['pagination'],
                     handler: this._bcMongo.getReceivedGrants,
                     scope: this._bcMongo,
-                    validation: {},
+                    validation: {
+                        required: ['account'],
+                        properties: {
+                            account: { type: 'string' },
+                        },
+                    },
                 },
                 getTokens: {
                     handler: this._bcMongo.getTokens,
@@ -106,6 +111,61 @@ class Connector extends BasicConnector {
                                 minItems: 1,
                                 maxItems: 100,
                             },
+                        },
+                    },
+                },
+                getStakeStat: {
+                    handler: this._bcMongo.getStakeStat,
+                    scope: this._bcMongo,
+                    validation: {
+                        properties: {
+                            fields: {
+                                type: 'array',
+                                items: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+                getStakeAgents: {
+                    handler: this._bcMongo.getStakeAgents,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['accounts'],
+                        properties: {
+                            accounts: {
+                                type: 'array',
+                                items: { type: 'string' },
+                                minItems: 1,
+                                maxItems: 100,
+                            },
+                            fields: {
+                                type: 'array',
+                                items: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+                getStakeGrants: {
+                    handler: this._bcMongo.getStakeGrants,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['grantor'],
+                        properties: {
+                            grantor: { type: 'string' },
+                            fields: {
+                                type: 'array',
+                                items: { type: 'string' },
+                            },
+                        },
+                    },
+                },
+                getStakeCandidates: {
+                    inherits: ['pagination'],
+                    handler: this._bcMongo.getStakeCandidates,
+                    scope: this._bcMongo,
+                    validation: {
+                        properties: {
+                            filter: { type: 'object', default: {} },
                         },
                     },
                 },
