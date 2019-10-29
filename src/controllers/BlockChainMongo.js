@@ -292,9 +292,12 @@ class BlockChainMongo extends BasicController {
         };
     }
 
-    async getNameBids({ offset, limit }) {
-        const collection = this._collection({ name: 'namebids' });
+    // TODO: it's faster to have cached usernames on block-service side instead of lookup
+    async getNameBids({ offset, limit, domain }) {
+        const src = domain ? { dbName: 'cyber_domain', name: 'domainbid' } : { name: 'namebids' };
+        const collection = this._collection(src);
 
+        const nameField = domain ? { name: 1 } : { newname: 1 }; // Note: used both in sort and project
         const results = await collection
             .aggregate([
                 {
@@ -313,14 +316,14 @@ class BlockChainMongo extends BasicController {
                 {
                     $sort: {
                         high_bid: -1,
-                        newname: 1,
+                        ...nameField,
                         _id: 1,
                     },
                 },
                 {
                     $project: {
                         _id: false,
-                        newname: true,
+                        ...nameField,
                         high_bidder: true,
                         high_bid: true,
                         last_bid_time: true,
@@ -332,17 +335,18 @@ class BlockChainMongo extends BasicController {
             .limit(limit)
             .toArray();
 
-        return { items: this._fixMongoResult(results, { newname: 'newName' }) };
+        return { items: this._fixMongoResult(results, { newname: 'name' }) };
     }
 
-    async getLastClosedBid() {
-        const collection = this._collection({ name: 'biosstate' });
-        const bid = await collection.findOne(
-            {},
-            { projection: { _id: false, last_close_bid: true } }
-        );
+    async getLastClosedBid({ domain }) {
+        const src = domain ? { dbName: 'cyber_domain', name: 'dbidstate' } : { name: 'biosstate' };
+        const collection = this._collection(src);
 
-        return this._fixMongoResult(bid, { lastCloseBid: 'lastClosedBid' });
+        const lastField = domain ? { last_win: true } : { last_close_bid: true };
+        const bid = await collection.findOne({}, { projection: { _id: false, ...lastField } });
+
+        const renames = { lastCloseBid: 'lastClosedBid', lastWin: 'lastClosedBid' };
+        return this._fixMongoResult(bid, renames);
     }
 
     async getReceivedGrants({ account, limit, offset }) {
@@ -529,6 +533,58 @@ class BlockChainMongo extends BasicController {
             .toArray();
 
         return { items: this._fixMongoResult(candidates) };
+    }
+
+    async getProposals({ filter, offset, limit }) {
+        const collection = this._collection({ dbName: 'cyber_msig', name: 'proposal' });
+        const fixedFilter = renameFields(filter || {}, { proposer: '_SERVICE_.scope' });
+        const proposals = await collection
+            .find(fixedFilter, {
+                projection: {
+                    _id: false,
+                    proposal_name: true,
+                    packed_transaction: true,
+                    '_SERVICE_.scope': true,
+                    '_SERVICE_.rev': true,
+                },
+            })
+            .sort({ '_SERVICE_.rev': -1 })
+            .skip(offset)
+            .limit(limit)
+            .toArray();
+
+        return {
+            items: this._fixMongoResult(proposals).map(x => ({
+                ...x,
+                proposer: x._SERVICE_.scope,
+                rev: x._SERVICE_.rev,
+                _SERVICE_: undefined,
+            })),
+        };
+    }
+
+    // TODO: apply invalidations
+    async getProposalApprovals({ proposer, proposal }) {
+        const collection = this._collection({ dbName: 'cyber_msig', name: 'approvals2' });
+        const filter = proposal ? { proposal_name: { $in: [].concat(proposal) } } : {};
+        const approvals = await collection
+            .find(
+                { '_SERVICE_.scope': proposer, ...filter },
+                {
+                    projection: {
+                        _id: false,
+                        proposal_name: true,
+                        requested_approvals: true,
+                        provided_approvals: true,
+                    },
+                }
+            )
+            .sort({ '_SERVICE_.rev': -1 })
+            .toArray();
+
+        // TODO: result can be simplified by removing zero time and returning level as "actor@permission"
+        const renames = { requestedApprovals: 'requested', providedApprovals: 'provided' };
+        return { items: this._fixMongoResult(approvals, renames) };
     }
 }
 

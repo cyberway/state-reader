@@ -45,13 +45,13 @@ class Connector extends BasicConnector {
                     validation: {},
                 },
                 getNameBids: {
-                    inherits: ['pagination'],
+                    inherits: ['auctionSelect', 'pagination'],
                     handler: this._bcMongo.getNameBids,
                     scope: this._bcMongo,
                     validation: {},
                 },
                 getLastClosedBid: {
-                    inherits: ['pagination'],
+                    inherits: ['auctionSelect'],
                     handler: this._bcMongo.getLastClosedBid,
                     scope: this._bcMongo,
                     validation: {},
@@ -115,18 +115,13 @@ class Connector extends BasicConnector {
                     },
                 },
                 getStakeStat: {
+                    inherits: ['fieldsSelect'],
                     handler: this._bcMongo.getStakeStat,
                     scope: this._bcMongo,
-                    validation: {
-                        properties: {
-                            fields: {
-                                type: 'array',
-                                items: { type: 'string' },
-                            },
-                        },
-                    },
+                    validation: {},
                 },
                 getStakeAgents: {
+                    inherits: ['fieldsSelect'],
                     handler: this._bcMongo.getStakeAgents,
                     scope: this._bcMongo,
                     validation: {
@@ -138,24 +133,17 @@ class Connector extends BasicConnector {
                                 minItems: 1,
                                 maxItems: 100,
                             },
-                            fields: {
-                                type: 'array',
-                                items: { type: 'string' },
-                            },
                         },
                     },
                 },
                 getStakeGrants: {
+                    inherits: ['fieldsSelect'],
                     handler: this._bcMongo.getStakeGrants,
                     scope: this._bcMongo,
                     validation: {
                         required: ['grantor'],
                         properties: {
                             grantor: { type: 'string' },
-                            fields: {
-                                type: 'array',
-                                items: { type: 'string' },
-                            },
                         },
                     },
                 },
@@ -166,6 +154,32 @@ class Connector extends BasicConnector {
                     validation: {
                         properties: {
                             filter: { type: 'object', default: {} },
+                        },
+                    },
+                },
+                getProposals: {
+                    inherits: ['pagination'],
+                    handler: this._bcMongo.getProposals,
+                    scope: this._bcMongo,
+                    validation: {
+                        properties: {
+                            filter: { type: 'object', default: {} },
+                        },
+                    },
+                },
+                getProposalApprovals: {
+                    handler: this._bcMongo.getProposalApprovals,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['proposer'],
+                        properties: {
+                            proposer: { type: 'string' },
+                            proposal: {
+                                type: ['string', 'array'],
+                                items: { type: 'string' },
+                                minItems: 1,
+                                uniqueItems: true,
+                            },
                         },
                     },
                 },
@@ -192,6 +206,24 @@ class Connector extends BasicConnector {
                             properties: {
                                 userId: {
                                     type: 'string',
+                                },
+                            },
+                        },
+                    },
+                    auctionSelect: {
+                        validation: {
+                            properties: {
+                                domain: { type: 'boolean' },
+                            },
+                        },
+                    },
+                    fieldsSelect: {
+                        validation: {
+                            properties: {
+                                fields: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    uniqueItems: true,
                                 },
                             },
                         },
