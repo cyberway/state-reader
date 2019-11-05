@@ -471,12 +471,20 @@ class BlockChainMongo extends BasicController {
 
     async getUsernames({ accounts, names, scope = 'gls' }) {
         const collection = this._collection({ name: 'username' });
+        const wildcard = scope === '*';
         const query = {
-            scope,
+            ...(wildcard ? {} : { scope }),
             ...(names ? { name: { $in: names } } : { owner: { $in: accounts } }),
         };
         const items = await collection
-            .find(query, { projection: { _id: false, owner: true, name: true } })
+            .find(query, {
+                projection: {
+                    _id: false,
+                    owner: true,
+                    name: true,
+                    ...(wildcard ? { scope: true } : {}),
+                },
+            })
             .toArray();
 
         return { items };
