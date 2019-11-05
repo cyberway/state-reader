@@ -102,16 +102,43 @@ class Connector extends BasicConnector {
                     handler: this._bcMongo.getUsernames,
                     scope: this._bcMongo,
                     validation: {
-                        required: ['accounts'],
                         properties: {
-                            scope: { type: 'string' },
+                            scope: { type: 'string', minLength: 1, maxLength: 12 },
                             accounts: {
                                 type: 'array',
                                 items: { type: 'string' },
                                 minItems: 1,
                                 maxItems: 100,
                             },
+                            names: {
+                                type: 'array',
+                                items: { type: 'string' },
+                                minItems: 1,
+                                maxItems: 100,
+                            },
                         },
+                        oneOf: [{ required: ['accounts'] }, { required: ['names'] }],
+                    },
+                },
+                getDomains: {
+                    handler: this._bcMongo.getDomains,
+                    scope: this._bcMongo,
+                    validation: {
+                        properties: {
+                            accounts: {
+                                type: 'array',
+                                items: { type: 'string' },
+                                minItems: 1,
+                                maxItems: 100,
+                            },
+                            names: {
+                                type: 'array',
+                                items: { type: 'string' },
+                                minItems: 1,
+                                maxItems: 100,
+                            },
+                        },
+                        oneOf: [{ required: ['accounts'] }, { required: ['names'] }],
                     },
                 },
                 getStakeStat: {
@@ -182,6 +209,16 @@ class Connector extends BasicConnector {
                             },
                         },
                     },
+                },
+                getResState: {
+                    handler: this._bcMongo.getResState,
+                    scope: this._bcMongo,
+                    validation: {},
+                },
+                getResConfig: {
+                    handler: this._bcMongo.getResConfig,
+                    scope: this._bcMongo,
+                    validation: {},
                 },
             },
             serverDefaults: {
