@@ -469,16 +469,37 @@ class BlockChainMongo extends BasicController {
         return { items };
     }
 
-    async getUsernames({ accounts, scope }) {
+    async getUsernames({ accounts, names, scope = 'gls' }) {
         const collection = this._collection({ name: 'username' });
+        const wildcard = scope === '*';
+        const query = {
+            ...(wildcard ? {} : { scope }),
+            ...(names ? { name: { $in: names } } : { owner: { $in: accounts } }),
+        };
         const items = await collection
-            .find(
-                { scope: scope === undefined ? 'gls' : scope, owner: { $in: accounts } },
-                { projection: { _id: false, owner: true, name: true } }
-            )
+            .find(query, {
+                projection: {
+                    _id: false,
+                    owner: true,
+                    name: true,
+                    ...(wildcard ? { scope: true } : {}),
+                },
+            })
             .toArray();
 
         return { items };
+    }
+
+    async getDomains({ accounts, names }) {
+        const collection = this._collection({ name: 'domain' });
+        const query = names
+            ? { name: { $in: names } }
+            : { $or: [{ owner: { $in: accounts } }, { linked_to: { $in: accounts } }] };
+        const items = await collection
+            .find(query, { projection: { _id: false, owner: true, linked_to: true, name: true } })
+            .toArray();
+
+        return { items: this._fixMongoResult(items) };
     }
 
     // fields: [account, proxy_level, fee, min_own_staked, balance, proxied, own_share, shares_sum, provided, received, last_proxied_update]
@@ -585,6 +606,18 @@ class BlockChainMongo extends BasicController {
         // TODO: result can be simplified by removing zero time and returning level as "actor@permission"
         const renames = { requestedApprovals: 'requested', providedApprovals: 'provided' };
         return { items: this._fixMongoResult(approvals, renames) };
+    }
+
+    async getResState() {
+        const collection = this._collection({ name: 'resstate' });
+        const state = await collection.findOne();
+        return this._fixMongoResult(state);
+    }
+
+    async getResConfig() {
+        const collection = this._collection({ name: 'resconfig' });
+        const cfg = await collection.findOne();
+        return this._fixMongoResult(cfg);
     }
 }
 
