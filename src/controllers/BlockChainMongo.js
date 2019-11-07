@@ -614,7 +614,7 @@ class BlockChainMongo extends BasicController {
             .find(
                 { owner, ...(name ? { name } : {}) },
                 {
-                    projection: { _id: false, usage_id: false, _SERVICE_: false },
+                    projection: { _id: false, usage_id: false, owner: false, _SERVICE_: false },
                     sort: { id: 1 },
                     skip: offset,
                     limit,
@@ -632,7 +632,7 @@ class BlockChainMongo extends BasicController {
             .find(
                 { account, ...(code ? { code } : {}) },
                 {
-                    projection: { _id: false, id: false, _SERVICE_: false },
+                    projection: { _id: false, id: false, account: false, _SERVICE_: false },
                     sort: { id: 1 },
                     skip: offset,
                     limit,
