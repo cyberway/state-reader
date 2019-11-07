@@ -608,6 +608,42 @@ class BlockChainMongo extends BasicController {
         return { items: this._fixMongoResult(approvals, renames) };
     }
 
+    async getPermissions({ owner, name, offset, limit }) {
+        const collection = this._collection({ name: 'permission' });
+        const permissions = await collection
+            .find(
+                { owner, ...(name ? { name } : {}) },
+                {
+                    projection: { _id: false, usage_id: false, _SERVICE_: false },
+                    sort: { id: 1 },
+                    skip: offset,
+                    limit,
+                }
+            )
+            .toArray();
+
+        // TODO: result can be simplified by returning permission as "actor@permission"
+        return { items: this._fixMongoResult(permissions) };
+    }
+
+    async getPermissionLinks({ account, code, offset, limit }) {
+        const collection = this._collection({ name: 'permlink' });
+        const plinks = await collection
+            .find(
+                { account, ...(code ? { code } : {}) },
+                {
+                    projection: { _id: false, id: false, _SERVICE_: false },
+                    sort: { id: 1 },
+                    skip: offset,
+                    limit,
+                }
+            )
+            .toArray();
+
+        const renames = { messageType: 'action', requiredPermission: 'permission' };
+        return { items: this._fixMongoResult(plinks, renames) };
+    }
+
     async getResState() {
         const collection = this._collection({ name: 'resstate' });
         const state = await collection.findOne();

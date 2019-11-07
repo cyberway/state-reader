@@ -210,6 +210,30 @@ class Connector extends BasicConnector {
                         },
                     },
                 },
+                getPermissions: {
+                    inherits: ['pagination'],
+                    handler: this._bcMongo.getPermissions,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['owner'],
+                        properties: {
+                            owner: { type: 'string' },
+                            name: { type: 'string', minLength: 1, maxLength: 13 },
+                        },
+                    },
+                },
+                getPermissionLinks: {
+                    inherits: ['pagination'],
+                    handler: this._bcMongo.getPermissionLinks,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['account'],
+                        properties: {
+                            account: { type: 'string' },
+                            code: { type: 'string', minLength: 1, maxLength: 12 },
+                        },
+                    },
+                },
                 getResState: {
                     handler: this._bcMongo.getResState,
                     scope: this._bcMongo,
