@@ -244,6 +244,10 @@ class Connector extends BasicConnector {
                     scope: this._bcMongo,
                     validation: {},
                 },
+                getVersion: {
+                    handler: () => ({ version: process.env.npm_package_version }),
+                    validation: {},
+                },
             },
             serverDefaults: {
                 parents: {
