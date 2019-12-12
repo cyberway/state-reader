@@ -1,4 +1,5 @@
-const core = require('gls-core-service');
+const VERSION = require('../../package.json').version;
+const core = require('cyberway-core-service');
 const BasicConnector = core.services.Connector;
 const BlockChainMongo = require('../controllers/BlockChainMongo');
 
@@ -245,7 +246,7 @@ class Connector extends BasicConnector {
                     validation: {},
                 },
                 getVersion: {
-                    handler: () => ({ version: process.env.npm_package_version }),
+                    handler: () => ({ version: VERSION }),
                     validation: {},
                 },
             },
