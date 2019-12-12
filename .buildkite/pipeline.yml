@@ -6,18 +6,35 @@ steps:
 
   - label: ":partyparrot: deploy to staging"
     command: "ansible-playbook -i \"$SECRET_STAGE_SERVER_IP,\" -e \"deploy_tag=dev-$BUILDKITE_BRANCH-$BUILDKITE_BUILD_NUMBER\" playbooks/deploy.yaml --vault-password-file ~/vault_pass --private-key ~/.ssh/id_ed25519_state_reader"
+    if: build.branch == 'master' || (build.env("BUILDKITE_TAG") != null && build.env("BUILDKITE_TAG") != "")
   
   - wait
 
-  - block: "Release?"
-    prompt: "Deploy $BUILDKITE_TAG to production?"
-
-  - wait
-
-  - label: ":docker: release image to docker hub"
+  - label: ":docker: release image with tag to docker hub"
     command: .buildkite/steps/release-image.sh
+    if: build.env("BUILDKITE_TAG") != null && build.env("BUILDKITE_TAG") != ""
 
   - wait
 
-  - label: ":rocket: deploy to prod"
-    command: "ansible-playbook -i \"$SECRET_PROD_SERVER_IP,\" --tags fast -e \"deploy_tag=$BUILDKITE_TAG\" playbooks/deploy.yaml --vault-password-file ~/vault_pass --private-key ~/.ssh/id_ed25519_state_reader"
+  - block: "Release?"
+    prompt: "Release $BUILDKITE_TAG to cyberway-prod-node-123?"
+    if: build.env("BUILDKITE_TAG") != null && build.env("BUILDKITE_TAG") != ""
+
+  - wait
+
+  - label: ":door: Concurrency gate"
+    command: "exit 0"
+    concurrency: 1
+    concurrency_group: "deploy-concurrency-gate"
+
+  - wait
+
+  - trigger: "deploy-state-reader"
+    label: ":rocket: to cyberway-prod-node-123"
+    build:
+      message: ":rocket: ${BUILDKITE_TAG}"
+      env:
+        BUILDKITE_TAG: "${BUILDKITE_TAG}"
+        BUILDKITE_CLEAN_CHECKOUT: "true"
+        DEPLOY_ENV: "prod"
+    if: build.env("BUILDKITE_TAG") != null && build.env("BUILDKITE_TAG") != ""
