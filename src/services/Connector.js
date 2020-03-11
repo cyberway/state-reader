@@ -211,6 +211,22 @@ class Connector extends BasicConnector {
                         },
                     },
                 },
+                getProposalWaits: {
+                    handler: this._bcMongo.getProposalWaits,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['proposer'],
+                        properties: {
+                            proposer: { type: 'string' },
+                            proposal: {
+                                type: ['string', 'array'],
+                                items: { type: 'string' },
+                                minItems: 1,
+                                uniqueItems: true,
+                            },
+                        },
+                    },
+                },
                 getPermissions: {
                     inherits: ['pagination'],
                     handler: this._bcMongo.getPermissions,
