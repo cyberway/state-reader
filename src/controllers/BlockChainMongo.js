@@ -608,6 +608,26 @@ class BlockChainMongo extends BasicController {
         return { items: this._fixMongoResult(approvals, renames) };
     }
 
+    async getProposalWaits({ proposer, proposal }) {
+        const collection = this._collection({ dbName: 'cyber_msig', name: 'waits' });
+        const filter = proposal ? { proposal_name: { $in: [].concat(proposal) } } : {};
+        const waits = await collection
+            .find(
+                { '_SERVICE_.scope': proposer, ...filter },
+                {
+                    projection: {
+                        _id: false,
+                        proposal_name: true,
+                        started: true,
+                    },
+                }
+            )
+            .sort({ '_SERVICE_.rev': -1 })
+            .toArray();
+
+        return { items: this._fixMongoResult(waits) };
+    }
+
     async getPermissions({ owner, name, offset, limit }) {
         const collection = this._collection({ name: 'permission' });
         const permissions = await collection
