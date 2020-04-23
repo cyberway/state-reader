@@ -471,7 +471,12 @@ class BlockChainMongo extends BasicController {
     }
 
     // Similar to EOS LightAPI `/api/balances` endpoint, but can also fetch any contract
-    async getAccountBalances({ account, contracts = ['cyber.token', 'c.point'], payments, safe }) {
+    async getAccountBalances({
+        account,
+        contracts = ['cyber.token', 'c.point'],
+        withPayments,
+        withSafe,
+    }) {
         let balances = [];
         for (const contract of contracts) {
             const collection = this._collection({
@@ -483,8 +488,8 @@ class BlockChainMongo extends BasicController {
                 balance: true,
                 '_SERVICE_.scope': true,
             };
-            if (payments) projection.payments = true;
-            if (safe) projection.safe = true;
+            if (withPayments) projection.payments = true;
+            if (withSafe) projection.safe = true;
 
             const result = await collection
                 .find({ '_SERVICE_.scope': account, balance: { $exists: true } }, { projection })
@@ -558,7 +563,7 @@ class BlockChainMongo extends BasicController {
                     keys: (auth.keys || []).map(({ key: pubkey, weight }) => ({
                         weight,
                         pubkey,
-                        //TODO: add `public_key`:
+                        //TODO: add `public_key` #38:
                         //"pubkey":         "EOS8RFgis6KAbChv89L3ibPmSH9raqN3iaFWbyLrDgmAuV3rsZ9SM",
                         //"public_key": "PUB_K1_8RFgis6KAbChv89L3ibPmSH9raqN3iaFWbyLrDgmAuV3pd8fRE",
                     })),
@@ -573,9 +578,9 @@ class BlockChainMongo extends BasicController {
                 threshold: auth.threshold,
             });
         }
-        // TODO: accept input key in PUB_K1 format
-        // TODO: it seems EOS LightAPI fetches all permissions of an account, which key matches
-        // TODO: fetch recursive (key found in acc1, so we should also fetch accs with auth.accounts.includes(acc1))
+        // TODO: accept input key in PUB_K1 format #38
+        // TODO: it seems EOS LightAPI fetches all permissions of an account, which key matches #38
+        // TODO: fetch recursive (key found in acc1, so we should also fetch accs with auth.accounts.includes(acc1)) #38
 
         return { cyber: { accounts } };
         // Note: EOS LightAPI also returns chain object for each network (we have only "cyber")
