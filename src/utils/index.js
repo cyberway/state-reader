@@ -3,7 +3,7 @@ const BigNum = core.types.BigNum;
 
 const { Logger } = core.utils;
 
-function formatAsset(value) {
+function formatAsset(value, silent = false) {
     if (!value) {
         return value;
     }
@@ -13,8 +13,9 @@ function formatAsset(value) {
     }
 
     if (value._amount == null || value._decs == null || !value._sym) {
-        Logger.error('Invalid asset format:', value);
-        throw new Error('Invalid asset format');
+        Logger.warn('Invalid asset format:', value);
+        if (!silent) throw new Error('Invalid asset format');
+        return;
     }
 
     const bigNum = new BigNum(value._amount);
@@ -116,6 +117,10 @@ function renameFields(obj, fields) {
     return obj;
 }
 
+function contractToDbName(name) {
+    return name.replace(/\./g, '_');
+}
+
 module.exports = {
     formatAsset,
     extractNumber,
@@ -124,4 +129,5 @@ module.exports = {
     isPlainObject,
     snakeToCamel,
     renameFields,
+    contractToDbName,
 };
