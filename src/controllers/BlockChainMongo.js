@@ -11,6 +11,7 @@ const {
     isPlainObject,
     snakeToCamel,
     renameFields,
+    contractToDbName,
 } = require('../utils');
 
 const MONGO_DB_PREFIX = '_CYBERWAY_'; // node can be configured to use other prefix (several nodes with 1 mongodb)
@@ -467,6 +468,122 @@ class BlockChainMongo extends BasicController {
             _SERVICE_: undefined,
         }));
         return { items };
+    }
+
+    // Similar to EOS LightAPI `/api/balances` endpoint, but can also fetch any contract
+    async getAccountBalances({
+        account,
+        contracts = ['cyber.token', 'c.point'],
+        withPayments,
+        withSafe,
+    }) {
+        let balances = [];
+        for (const contract of contracts) {
+            const collection = this._collection({
+                dbName: contractToDbName(contract),
+                name: 'accounts',
+            });
+            const projection = {
+                _id: false,
+                balance: true,
+                '_SERVICE_.scope': true,
+            };
+            if (withPayments) projection.payments = true;
+            if (withSafe) projection.safe = true;
+
+            const result = await collection
+                .find({ '_SERVICE_.scope': account, balance: { $exists: true } }, { projection })
+                .toArray();
+
+            const items = result
+                .filter(({ balance }) => Boolean(balance))
+                .map(({ balance, payments, safe }) => {
+                    const asset = formatAsset(balance, true);
+                    return {
+                        contract,
+                        amount: (asset || '').split(' ', 1)[0],
+                        currency: balance._sym,
+                        decimals: this._fixMongoObject(balance._decs), // Note: it's string in LightAPI response
+                        // our
+                        balance: asset,
+                        payments: formatAsset(payments, true),
+                        safe,
+                    };
+                });
+            if (items.length) balances = [...balances, ...items];
+        }
+
+        return { account_name: account, balances };
+        // Note: EOS LightAPI also returns chain object:
+        /*
+        "chain" : {
+            "block_num" : 117005315,
+            "block_time" : "2020-04-23 11:26:21",
+            "chainid" : "aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906",
+            "decimals" : 4,
+            "description" : "EOS Mainnet",
+            "network" : "eos",
+            "production" : 1,
+            "rex_enabled" : 1,
+            "sync" : 0,
+            "systoken" : "EOS"
+        }
+        */
+    }
+
+    // Similar to EOS LightAPI `/key/PUB_KEY` endpoint, but can also fetch by auth.account
+    async getAccountsByAuth({ key, account }) {
+        const collection = this._collection({ name: 'permission' });
+        const byKey = Boolean(key);
+
+        if (byKey) {
+            if (key.startsWith('EOS')) key = key.replace('EOS', 'GLS');
+            else if (!key.startsWith('GLS')) throw { code: 400, message: 'Unknown key format' };
+        }
+        const query = byKey
+            ? { 'auth.keys.key': key }
+            : { 'auth.accounts.permission.actor': account };
+        const result = await collection
+            .find(query, {
+                projection: {
+                    _id: false,
+                    owner: true,
+                    name: true,
+                    auth: true,
+                },
+            })
+            .toArray();
+
+        const accounts = {};
+        for (const { owner, name: perm, auth } of this._fixMongoObject(result)) {
+            if (!accounts[owner]) accounts[owner] = [];
+            accounts[owner].push({
+                perm,
+                auth: {
+                    keys: (auth.keys || []).map(({ key: pubkey, weight }) => ({
+                        weight,
+                        pubkey,
+                        //TODO: add `public_key` #38:
+                        //"pubkey":         "EOS8RFgis6KAbChv89L3ibPmSH9raqN3iaFWbyLrDgmAuV3rsZ9SM",
+                        //"public_key": "PUB_K1_8RFgis6KAbChv89L3ibPmSH9raqN3iaFWbyLrDgmAuV3pd8fRE",
+                    })),
+                    accounts: (auth.accounts || []).map(
+                        ({ permission: { actor, permission } = {}, weight }) => ({
+                            actor,
+                            permission,
+                            weight,
+                        })
+                    ),
+                },
+                threshold: auth.threshold,
+            });
+        }
+        // TODO: accept input key in PUB_K1 format #38
+        // TODO: it seems EOS LightAPI fetches all permissions of an account, which key matches #38
+        // TODO: fetch recursive (key found in acc1, so we should also fetch accs with auth.accounts.includes(acc1)) #38
+
+        return { cyber: { accounts } };
+        // Note: EOS LightAPI also returns chain object for each network (we have only "cyber")
     }
 
     async getUsernames({ accounts, names, scope = 'gls' }) {

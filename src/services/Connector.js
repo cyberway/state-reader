@@ -99,6 +99,35 @@ class Connector extends BasicConnector {
                         },
                     },
                 },
+                getAccountBalances: {
+                    handler: this._bcMongo.getAccountBalances,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['account'],
+                        properties: {
+                            account: { type: 'string' },
+                            contracts: {
+                                type: 'array',
+                                items: { type: 'string' },
+                                minItems: 1,
+                                maxItems: 10,
+                            },
+                            withPayments: { type: 'boolean' },
+                            withSafe: { type: 'boolean' },
+                        },
+                    },
+                },
+                getAccountsByAuth: {
+                    handler: this._bcMongo.getAccountsByAuth,
+                    scope: this._bcMongo,
+                    validation: {
+                        properties: {
+                            key: { type: 'string', minLength: 53, maxLength: 53 },
+                            account: { type: 'string', minLength: 1, maxLength: 13 },
+                        },
+                        oneOf: [{ required: ['key'] }, { required: ['account'] }],
+                    },
+                },
                 getUsernames: {
                     handler: this._bcMongo.getUsernames,
                     scope: this._bcMongo,
@@ -271,14 +300,8 @@ class Connector extends BasicConnector {
                     pagination: {
                         validation: {
                             properties: {
-                                offset: {
-                                    type: 'number',
-                                    default: 0,
-                                },
-                                limit: {
-                                    type: 'number',
-                                    default: 20,
-                                },
+                                offset: { type: 'number', default: 0 },
+                                limit: { type: 'number', default: 20 },
                             },
                         },
                     },
@@ -286,9 +309,7 @@ class Connector extends BasicConnector {
                         validation: {
                             required: ['userId'],
                             properties: {
-                                userId: {
-                                    type: 'string',
-                                },
+                                userId: { type: 'string' },
                             },
                         },
                     },
