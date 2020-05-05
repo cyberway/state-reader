@@ -14,12 +14,14 @@ const {
     contractToDbName,
 } = require('../utils');
 
+const USERNAMES_MISS_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
 const MONGO_DB_PREFIX = '_CYBERWAY_'; // node can be configured to use other prefix (several nodes with 1 mongodb)
 
 class BlockChainMongo extends BasicController {
     async boot() {
+        this._cache = {};
+        this._missCache = {};
         this._client = await this._initializeClient();
-        await this._createGlsnameView();
     }
 
     async _initializeClient() {
@@ -36,18 +38,39 @@ class BlockChainMongo extends BasicController {
         });
     }
 
-    async _createGlsnameView() {
-        const db = this._client.db(MONGO_DB_PREFIX);
+    // {accounts: [a1,a2,…], items: [{owner,name},…]}
+    _updateGlsNamesCache({ accounts, items }) {
+        for (const a of accounts) {
+            const i = items.find(({ owner }) => a === owner);
+            if (i) {
+                this._cache[a] = i.name;
+            } else {
+                this._missCache[a] = Date.now() + USERNAMES_MISS_CACHE_TTL;
+            }
+        }
+    }
 
-        const collectionExist = (await db.listCollections().toArray()).find(
-            collection => collection.name === 'glsname'
-        );
+    async _addGlsNames({ items, field = 'account', cacheOnly = false }) {
+        const toFetch = {};
+        const now = Date.now();
+        for (const i of items) {
+            const account = i[field];
+            const glsName = this._cache[account];
+            if (glsName) {
+                i.glsName = glsName;
+            } else {
+                const miss = this._missCache[account];
+                if (!miss || now >= miss) {
+                    toFetch[account] = true;
+                }
+            }
+        }
+        if (cacheOnly) return;
 
-        if (!collectionExist) {
-            await db.createCollection('glsname', {
-                viewOn: 'username',
-                pipeline: [{ $match: { scope: 'gls' } }, { $project: { owner: 1, name: 1 } }],
-            });
+        const accounts = Object.keys(toFetch);
+        if (accounts.length) {
+            await this.getUsernames({ accounts }); // we don't need a result, it will be put in the cache
+            this._addGlsNames({ items, field, cacheOnly: true });
         }
     }
 
@@ -116,23 +139,15 @@ class BlockChainMongo extends BasicController {
                 { $project: { account: '$auth.accounts.permission.actor' } },
                 { $unwind: '$account' },
                 {
-                    $lookup: {
-                        as: 'u',
-                        foreignField: 'owner',
-                        from: 'glsname',
-                        localField: 'account',
-                    },
-                },
-                {
                     $project: {
                         _id: false,
                         account: true,
-                        glsName: { $arrayElemAt: ['$u.name', 0] },
                     },
                 },
             ])
             .toArray();
 
+        await this._addGlsNames({ items });
         return { items };
     }
 
@@ -163,20 +178,11 @@ class BlockChainMongo extends BasicController {
             .aggregate([
                 { $match: { enabled: true } },
                 {
-                    $lookup: {
-                        as: 'u',
-                        foreignField: 'owner',
-                        from: 'glsname',
-                        localField: 'account',
-                    },
-                },
-                {
                     $project: {
                         _id: false,
                         account: true,
                         votes: true,
                         percent: { $divide: ['$votes', totalVotes] },
-                        glsName: { $arrayElemAt: ['$u.name', 0] },
                     },
                 },
                 {
@@ -211,9 +217,8 @@ class BlockChainMongo extends BasicController {
             }
         }
 
-        return {
-            items,
-        };
+        await this._addGlsNames({ items });
+        return { items };
     }
 
     async _getGrantsByAccount(receiverIds, account) {
@@ -307,14 +312,6 @@ class BlockChainMongo extends BasicController {
                     },
                 },
                 {
-                    $lookup: {
-                        as: 'u',
-                        foreignField: 'owner',
-                        from: 'glsname',
-                        localField: 'high_bidder',
-                    },
-                },
-                {
                     $sort: {
                         high_bid: -1,
                         ...nameField,
@@ -328,7 +325,6 @@ class BlockChainMongo extends BasicController {
                         high_bidder: true,
                         high_bid: true,
                         last_bid_time: true,
-                        glsName: { $arrayElemAt: ['$u.name', 0] },
                     },
                 },
             ])
@@ -336,6 +332,7 @@ class BlockChainMongo extends BasicController {
             .limit(limit)
             .toArray();
 
+        await this._addGlsNames({ items: results, field: 'high_bidder' });
         return { items: this._fixMongoResult(results, { newname: 'name' }) };
     }
 
@@ -603,6 +600,10 @@ class BlockChainMongo extends BasicController {
                 },
             })
             .toArray();
+
+        if (accounts && scope === 'gls') {
+            this._updateGlsNamesCache({ accounts, items });
+        }
 
         return { items };
     }
