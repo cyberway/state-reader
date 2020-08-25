@@ -280,6 +280,26 @@ class Connector extends BasicConnector {
                         },
                     },
                 },
+                getItems: {
+                    inherits: ['pagination'],
+                    handler: this._bcMongo.getItems,
+                    scope: this._bcMongo,
+                    validation: {
+                        required: ['contract', 'name'],
+                        properties: {
+                            contract: { type: 'string' },
+                            name: { type: 'string' },
+                            query: {
+                                type: 'object',
+                                default: {},
+                            },
+                            projection: {
+                                type: 'object',
+                                default: {},
+                            },
+                        },
+                    },
+                },
                 getResState: {
                     handler: this._bcMongo.getResState,
                     scope: this._bcMongo,

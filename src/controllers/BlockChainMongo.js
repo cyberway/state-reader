@@ -12,6 +12,7 @@ const {
     snakeToCamel,
     renameFields,
     contractToDbName,
+    normalizeQuery,
 } = require('../utils');
 
 const USERNAMES_MISS_CACHE_TTL = 1000 * 60 * 10; // 10 minutes
@@ -780,6 +781,20 @@ class BlockChainMongo extends BasicController {
 
         const renames = { messageType: 'action', requiredPermission: 'permission' };
         return { items: this._fixMongoResult(plinks, renames) };
+    }
+
+    async getItems({ contract, name, query, projection, offset, limit }) {
+        const collection = this._collection({ dbName: contractToDbName(contract), name });
+        const normalizedQuery = normalizeQuery(query);
+        const items = await collection
+            .find(normalizedQuery, {
+                projection: { _id: false, ...projection },
+                skip: offset,
+                limit,
+            })
+            .toArray();
+
+        return { items: this._fixMongoResult(items) };
     }
 
     async getResState() {

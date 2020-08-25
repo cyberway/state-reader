@@ -1,3 +1,4 @@
+const { Decimal128 } = require('mongodb');
 const core = require('cyberway-core-service');
 const BigNum = core.types.BigNum;
 
@@ -121,6 +122,40 @@ function contractToDbName(name) {
     return name.replace(/\./g, '_');
 }
 
+function normalizeQuery(query) {
+    const normalizedQuery = {};
+    for (const [field, value] of Object.entries(query)) {
+        if (typeof value === 'string') {
+            if (value.startsWith('NumberDecimal')) {
+                normalizedQuery[field] = Decimal128.fromString(value.replace(/\D/g, ''));
+            } else if (value.indexOf('$in') !== -1) {
+                const rawValues = value
+                    .replace(' ', '')
+                    .substring(value.indexOf('['), value.indexOf(']') - 1)
+                    .split(',');
+
+                const resArray = [];
+
+                for (const el of rawValues) {
+                    resArray.push(
+                        value.indexOf('NumberDecimal') !== -1
+                            ? Decimal128.fromString(el.replace(/\D/g, ''))
+                            : el.replace(/\W/g, '')
+                    );
+                }
+
+                normalizedQuery[field] = { $in: resArray };
+            } else {
+                normalizedQuery[field] = value;
+            }
+        } else {
+            normalizedQuery[field] = value;
+        }
+    }
+
+    return normalizedQuery;
+}
+
 module.exports = {
     formatAsset,
     extractNumber,
@@ -130,4 +165,5 @@ module.exports = {
     snakeToCamel,
     renameFields,
     contractToDbName,
+    normalizeQuery,
 };
